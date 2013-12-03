@@ -1,8 +1,8 @@
 {
-  "name": "devopsjsbdd",
+  "name": "DDeflect",
   "version": "0.0.1",
   "author": "Vid",
-  "description": "behaviour testing for projects",
+  "description": "distributed deflect https://wiki.deflect.ca/wiki/DDeflect",
   "dependencies": {
     "devopsjs-bdd-cases": "~1.5.2"
   },
