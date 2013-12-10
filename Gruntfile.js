@@ -15,7 +15,14 @@ module.exports = function(grunt) {
         },
         src: ['test/*-test.js']
       },
+      bddTest: {
+        options: {
+          reporter: 'spec'
+        },
+        src: ['bdd/*-test.js']
+      }
     },
+
     /*
     docco: {
       docs: {

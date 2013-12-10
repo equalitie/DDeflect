@@ -1,12 +1,10 @@
 Feature: User agent accesses DDeflect
 
 Scenario: Get web site address
-@Pending
  Given site looked up
  Then it should resolve
  And the addresses should be deflect
 
-@Pending
 Scenario: Get web index
  Given I have the IP address of a trusted edge
  When I request the index page
