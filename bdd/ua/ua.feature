@@ -33,3 +33,9 @@ Scenario: v-edge times out
  Then I should cancel the request
  And I should tell the controller
  And the controller should return with a link to bundled content on a different v-edge
+
+ @Pending
+ Scenario: handle POST request
+ Given I generate a POST request against a form
+ Then I should receive the contents from the proxy
+
