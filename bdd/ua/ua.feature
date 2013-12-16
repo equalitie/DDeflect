@@ -34,8 +34,12 @@ Scenario: v-edge times out
  And I should tell the controller
  And the controller should return with a link to bundled content on a different v-edge
 
- @Pending
- Scenario: handle POST request
- Given I generate a POST request against a form
- Then I should receive the contents from the proxy
+@Pending
+Scenario: handle POST request
+Given I generate a POST request against a form
+Then I should receive the contents from the proxy
+
+@Pending
+Scenario: Verify the Javascript and key are sent over https
+
 
