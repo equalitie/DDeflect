@@ -1,0 +1,14 @@
+{
+	"name": "Bundler",
+	"version": "0.0.1",
+	"author": "Nadim Kobeissi <nadim@equalit.ie>",
+	"private": true,
+	"scripts": {
+		"start": "node bundler"
+	},
+	"dependencies": {
+		"express": "latest",
+		"request": "latest",
+		"zombie": "latest"
+	}
+}
