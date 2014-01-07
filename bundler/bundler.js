@@ -46,6 +46,8 @@ Bundler.get('/', function(req, res) {
 		var resources = []
 		// When we're done visiting the website...
 		browser.on('done', function() {
+			// Don't run if we don't obtain a DOM.
+			if (!browser.document) { return }
 			// First, add all JS/code resources.
 			for (var i in browser['resources']) {
 				if (browser['resources'][i].hasOwnProperty('request')) {
