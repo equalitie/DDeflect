@@ -10,6 +10,7 @@
 		"node-zip": "latest",
 		"express": "latest",
 		"request": "latest",
-		"zombie": "latest"
+		"phantom": "latest",
+		"phantomjs": "latest"
 	}
 }

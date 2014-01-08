@@ -3,9 +3,9 @@
 */
 
 var express = require('express')
+var phantom = require('phantom')
 var request = require('request')
 var nodezip = require('node-zip')
-var zombie  = require('zombie')
 var http    = require('http')
 var path    = require('path')
 var fs      = require('fs')
@@ -27,8 +27,6 @@ Bundler.configure('development', function() {
 	Bundler.use(express.errorHandler())
 })
 
-Bundler.browser = new zombie()
-
 http.createServer(Bundler).listen(3000, function() {
 	console.log('Bundler')
 })
@@ -40,42 +38,51 @@ http.createServer(Bundler).listen(3000, function() {
 */
 
 Bundler.get('/', function(req, res) {
-	// Visit the website.
-	// When we're done visiting the website, Bundler.browser.on('done') will be executed (below)
-	Bundler.browser.visit(req.query.url, function() {})
-
-	/*
-	* Detect when the browser is done visiting a page, and begin bundling.
-	*/
-
-	Bundler.browser.on('done', function() {
-		// Don't run if we don't obtain a DOM.
-		if (!Bundler.browser.document) { return }
-		// Initialize array for the collection of resources the website is dependent on.
-		// We will fetch these resources as part of the bundle.
-		var resources = {}
-		var resourceNumber = 0
-		var zip = new nodezip()
-		// First, add all JS/code resources.
-		for (var i in Bundler.browser['resources']) {
-			if (Bundler.browser['resources'][i].hasOwnProperty('request')) {
-				resources[resourceNumber] = Bundler.browser['resources'][i].request.url
-				zip.file(
-					resourceNumber,
-					Bundler.browser['resources'][i].response.body
-				)
-			}
-		}
-		// Detect and add all CSS/link resources.
-		var linkResources = Bundler.browser.document.querySelectorAll('link')
-		for (var i in linkResources) {
-			if (linkResources[i].href) {
-				resources[resourceNumber] = linkResources[i].href
-			}
-		}
-		// Work in progress from this point on.
-		res.end(zip.generate({base64: true, compression: 'DEFLATE'}))
-		//res.end(resources.join('\n'))
-		Bundler.browser.close()
+	// Initialize object for the collection of resources the website is dependent on.
+	// We will fetch these resources as part of the bundle.
+	var zip = new nodezip()
+	var resources = {}
+	var resourceNumber = 0
+	var pageLoadedCutoff = false
+	// Visit the website, determine its HTML and the resources it depends on.
+	phantom.create(function(ph) {
+		ph.createPage(function(page) {
+			page.set('onResourceRequested', function(request, networkRequest) {
+				if (!pageLoadedCutoff) {
+					resources[resourceNumber] = request.url
+					resourceNumber++
+				}
+			})
+			page.open(req.query.url, function(status) {
+				pageLoadedCutoff = true
+				if (status !== 'success') {
+					// Handle page load failure here
+					// THIS IS NOT DONE NADIM!
+				}
+				// We've loaded the page and know what its resources are.
+				// Now we download the resources and throw them into the zip file.
+				var bundledResources = 1
+				for (var i in resources) {
+					Bundler.fetchResource(resources[i], i, function(body, rn) {
+						console.log('Bundling resource ' + rn + ' [' + resources[rn] + ']')
+						zip.file(rn, body)
+						bundledResources++
+						if (bundledResources === resourceNumber) {
+							res.end(zip.generate({base64: true, compression: 'DEFLATE'}))
+						}
+					})
+				}
+				ph.exit()
+			})
+		})
 	})
 })
+
+/*
+* This is used by Bundler to fetch resources.
+*/
+Bundler.fetchResource = function(url, rn, callback) {
+	request(url, { method: 'GET' }, function(error, response, body) {
+		callback(body, rn)
+	})
+}
