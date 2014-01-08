@@ -4,6 +4,7 @@
 
 var express = require('express')
 var request = require('request')
+var nodezip = require('node-zip')
 var zombie  = require('zombie')
 var http    = require('http')
 var path    = require('path')
@@ -26,6 +27,8 @@ Bundler.configure('development', function() {
 	Bundler.use(express.errorHandler())
 })
 
+Bundler.browser = new zombie()
+
 http.createServer(Bundler).listen(3000, function() {
 	console.log('Bundler')
 })
@@ -37,33 +40,42 @@ http.createServer(Bundler).listen(3000, function() {
 */
 
 Bundler.get('/', function(req, res) {
-	var url = req.query.url
-	browser = new zombie()
 	// Visit the website.
-	browser.visit(url, function() {
+	// When we're done visiting the website, Bundler.browser.on('done') will be executed (below)
+	Bundler.browser.visit(req.query.url, function() {})
+
+	/*
+	* Detect when the browser is done visiting a page, and begin bundling.
+	*/
+
+	Bundler.browser.on('done', function() {
+		// Don't run if we don't obtain a DOM.
+		if (!Bundler.browser.document) { return }
 		// Initialize array for the collection of resources the website is dependent on.
 		// We will fetch these resources as part of the bundle.
-		var resources = []
-		// When we're done visiting the website...
-		browser.on('done', function() {
-			// Don't run if we don't obtain a DOM.
-			if (!browser.document) { return }
-			// First, add all JS/code resources.
-			for (var i in browser['resources']) {
-				if (browser['resources'][i].hasOwnProperty('request')) {
-					resources.push(browser['resources'][i].request.url)
-				}
+		var resources = {}
+		var resourceNumber = 0
+		var zip = new nodezip()
+		// First, add all JS/code resources.
+		for (var i in Bundler.browser['resources']) {
+			if (Bundler.browser['resources'][i].hasOwnProperty('request')) {
+				resources[resourceNumber] = Bundler.browser['resources'][i].request.url
+				zip.file(
+					resourceNumber,
+					Bundler.browser['resources'][i].response.body
+				)
 			}
-			// Detect and add all CSS/link resources.
-			var linkResources = browser.document.querySelectorAll('link')
-			for (var i in linkResources) {
-				if (linkResources[i].href) {
-					resources.push(linkResources[i].href)
-				}
+		}
+		// Detect and add all CSS/link resources.
+		var linkResources = Bundler.browser.document.querySelectorAll('link')
+		for (var i in linkResources) {
+			if (linkResources[i].href) {
+				resources[resourceNumber] = linkResources[i].href
 			}
-			// Work in progress from this point on.
-			res.end(resources.join('\n'))
-			browser.close()
-		})
+		}
+		// Work in progress from this point on.
+		res.end(zip.generate({base64: true, compression: 'DEFLATE'}))
+		//res.end(resources.join('\n'))
+		Bundler.browser.close()
 	})
 })

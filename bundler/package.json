@@ -7,6 +7,7 @@
 		"start": "node bundler"
 	},
 	"dependencies": {
+		"node-zip": "latest",
 		"express": "latest",
 		"request": "latest",
 		"zombie": "latest"
