@@ -11,6 +11,7 @@
 		"express": "latest",
 		"request": "latest",
 		"phantom": "latest",
-		"phantomjs": "latest"
+		"phantomjs": "latest",
+		"colors": "latest"
 	}
 }
