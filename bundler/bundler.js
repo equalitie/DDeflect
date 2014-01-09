@@ -64,7 +64,9 @@ Bundler.get('/', function(req, res) {
 			Bundler.log('Bundling has begun for ' + req.query.url.green)
 			page.set('onResourceRequested', function(request, networkRequest) {
 				if (!pageLoadedCutoff) {
-					resources[resourceNumber] = request.url
+					resources[resourceNumber] = {
+						url: request.url
+					}
 					resourceNumber++
 				}
 			})
@@ -78,19 +80,22 @@ Bundler.get('/', function(req, res) {
 				// Now we download the resources and throw them into the zip file.
 				var pageHTML = ''
 				var bundledResources = 0
-				Bundler.fetchResource(resources[0], 0, function(body, rn) {
+				zip.file('resources', JSON.stringify(resources))
+				Bundler.fetchResource(resources[0].url, 0, function(body, rn) {
 					pageHTML = body
 				})
 				for (var i in resources) {
-					Bundler.fetchResource(resources[i], i, function(body, rn) {
+					Bundler.fetchResource(resources[i].url, i, function(body, rn) {
 						bundledResources++
 						if (rn == 0) { return }
-						Bundler.log('Bundling resource ' + rn + ' ['.green + resources[rn].green + ']'.green)
+						Bundler.log('Bundling resource ' + rn + ' ['.green + resources[rn].url.green + ']'.green)
+						resources[rn].content = body
+
 						zip.file(rn, body)
-						pageHTML = pageHTML.replace(new RegExp(resources[rn], 'g'), rn)
+						pageHTML = pageHTML.replace(new RegExp(resources[rn].url, 'g'), rn)
 						if (bundledResources === resourceNumber) {
 							//res.end(zip.generate({base64: true, compression: 'DEFLATE'}))
-							Bundler.log('Serving bundle: '.bold + resources[0].green)
+							Bundler.log('Serving bundle: '.bold + resources[0].url.green)
 							res.end(pageHTML)
 						}
 					})
@@ -101,11 +106,17 @@ Bundler.get('/', function(req, res) {
 	})
 })
 
-/*
-* This is used by Bundler to fetch resources.
-*/
 Bundler.fetchResource = function(url, resourceNumber, callback) {
 	request(url, { method: 'GET' }, function(error, response, body) {
 		callback(body, resourceNumber)
 	})
+}
+
+Bundler.replaceResource = function(resources) {
+	// (^https?://|\.{0,2}/?)((?:\w|\-|\.)+)
+	for (var i = 0; i !== Object.keys(resources).length; i++) {
+		for (var o = 0; o !== Object.keys(resources).length; o++) {
+			if (match = resources[i].content.match()) {}
+		}
+	}
 }
