@@ -113,7 +113,7 @@ Bundler.fetchResource = function(url, resourceNumber, callback) {
 }
 
 Bundler.replaceResource = function(resources) {
-	// (^https?://|\.{0,2}/?)((?:\w|\-|\.)+)
+	var catchURI = /(^https?:\/\/|\.{0,2}\/?)((?:\w|\-|\.)+)/g
 	for (var i = 0; i !== Object.keys(resources).length; i++) {
 		for (var o = 0; o !== Object.keys(resources).length; o++) {
 			if (match = resources[i].content.match()) {}
