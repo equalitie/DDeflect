@@ -7,6 +7,7 @@ var phantom = require('phantom')
 var request = require('request')
 var nodezip = require('node-zip')
 var colors  = require('colors')
+var mime    = require('mime')
 var http    = require('http')
 var path    = require('path')
 var fs      = require('fs')
@@ -78,25 +79,22 @@ Bundler.get('/', function(req, res) {
 				}
 				// We've loaded the page and know what its resources are.
 				// Now we download the resources and throw them into the zip file.
-				var pageHTML = ''
 				var bundledResources = 0
 				zip.file('resources', JSON.stringify(resources))
-				Bundler.fetchResource(resources[0].url, 0, function(body, rn) {
-					pageHTML = body
-				})
 				for (var i in resources) {
 					Bundler.fetchResource(resources[i].url, i, function(body, rn) {
 						bundledResources++
-						if (rn == 0) { return }
-						Bundler.log('Bundling resource ' + rn + ' ['.green + resources[rn].url.green + ']'.green)
+						Bundler.log(
+							'Fetching resource ' + rn
+							+ ' ['.green + resources[rn].url.green + ']'.green
+						)
 						resources[rn].content = body
-
-						zip.file(rn, body)
-						pageHTML = pageHTML.replace(new RegExp(resources[rn].url, 'g'), rn)
+						// zip.file(rn, body)
 						if (bundledResources === resourceNumber) {
+							resources = Bundler.replaceResource(resources)
 							//res.end(zip.generate({base64: true, compression: 'DEFLATE'}))
 							Bundler.log('Serving bundle: '.bold + resources[0].url.green)
-							res.end(pageHTML)
+							res.end(resources[0].content)
 						}
 					})
 				}
@@ -114,9 +112,39 @@ Bundler.fetchResource = function(url, resourceNumber, callback) {
 
 Bundler.replaceResource = function(resources) {
 	var catchURI = /(^https?:\/\/|\.{0,2}\/?)((?:\w|\-|\.)+)/g
-	for (var i = 0; i !== Object.keys(resources).length; i++) {
-		for (var o = 0; o !== Object.keys(resources).length; o++) {
-			if (match = resources[i].content.match()) {}
+	for (var i = 0; i < Object.keys(resources).length; i++) {
+		if (resources[i].content.length > 16384) {
+			console.log('not scanning ' + resources[i].url)
+			continue
+		}
+		console.log(resources[i].url)
+		for (var o = 0; o < Object.keys(resources).length; o++) {
+			if (resources[o].url === resources[0].url) { continue }
+			console.log(resources[o].url)
+			var filename = resources[o].url.match(catchURI)
+			filename = filename[filename.length - 1].substring(1)
+			if (!filename.match(/\.\w+$/)) { continue }
+			console.log(filename)
+			var URI = new RegExp('([a-zA-Z0-9]|\\.|\:|\/)*(\\/)?' + filename, 'g')
+			var fullURI = resources[i].content.match(URI)
+			if (!fullURI) { continue }
+			console.log(fullURI)
+			var dataURI = Bundler.convertToDataURI(
+				resources[o].content,
+				filename.match(/\.\w+$/)[0]
+			)
+			for (var p in fullURI) {
+				resources[i].content = resources[i].content.replace(
+					fullURI[p], dataURI
+				)
+			}
 		}
 	}
+	return resources
+}
+
+Bundler.convertToDataURI = function(content, extension) {
+	var dataURI = 'data:' + mime.lookup(extension) + ';base64,'
+	dataURI += new Buffer(content).toString('base64')
+	return dataURI
 }
