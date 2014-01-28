@@ -157,13 +157,22 @@ Bundler.replaceResource = function(resources) {
 			filename = filename[filename.length - 1]
 			if (!filename.match(/\/(\w|-|@)+\.\w+$/)) { continue }
 			filename = filename.substring(1)
-			//var URI = new RegExp('(\\w|\\.|\:|\\/)*(\\/)?' + filename, 'g')
-			var URI = new RegExp('(\'|")(\\w|:|\\/|-|@|\\.*)*' + filename + '(\'|\")', 'g')
 			var dataURI = Bundler.convertToDataURI(
 				resources[o].content,
 				filename.match(/\.\w+$/)[0]
 			)
-			resources[i].content = resources[i].content.replace(URI, '"' + dataURI + '"')
+			var URI = [
+				new RegExp('(\'|")(\\w|:|\\/|-|@|\\.*)*' + filename + '(\'|\")', 'g'),
+				new RegExp('\\((\\w|:|\\/|-|@|\\.*)*' + filename + '\\)', 'g'),
+			]
+			for (var p in URI) {
+				if (p == 0) {
+					resources[i].content = resources[i].content.replace(URI[p], '"' + dataURI + '"')
+				}
+				if (p == 1) {
+					resources[i].content = resources[i].content.replace(URI[p], '(' + dataURI + ')')
+				}
+			}
 		}
 	}
 	return resources
