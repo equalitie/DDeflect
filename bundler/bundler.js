@@ -104,31 +104,49 @@ Bundler.get('/', function(req, res) {
 	})
 })
 
+Bundler.isSearchableFile = function(extension) {
+	if (mime.lookup(extension).match(/(text|css|javascript|plain)/)) {
+		return true
+	}
+	return false
+}
+
 Bundler.fetchResource = function(url, resourceNumber, callback) {
-	request(url, { method: 'GET' }, function(error, response, body) {
-		callback(body, resourceNumber)
-	})
+	var enc = 'Base64'
+	if (extension = url.match(/\.\w+$/)) {
+		if (Bundler.isSearchableFile(extension[0])) {
+			enc = 'utf8'
+		}
+	}
+	if (resourceNumber == 0) {
+		enc = 'utf8'
+	}
+	request(url,
+		{ method: 'GET', encoding: enc },
+		function(error, response, body) {
+			callback(body, resourceNumber)
+		}
+	)
 }
 
 Bundler.replaceResource = function(resources) {
 	var catchURI = /(^https?:\/\/|\.{0,2}\/?)((?:\w|\-|\.)+)/g
-	for (var i = 0; i < Object.keys(resources).length; i++) {
-		if (resources[i].content.length > 16384) {
-			console.log('not scanning ' + resources[i].url)
-			continue
+	for (var i = Object.keys(resources).length - 1; i >= 0; i--) {
+		if (!resources[i].content) { continue }
+		if (resources[i].content.length > 2048) { continue }
+		if (extension = resources[i].url.match(/\.\w+$/)) {
+			if (!Bundler.isSearchableFile(extension[0])) {
+				continue
+			}
 		}
-		console.log(resources[i].url)
-		for (var o = 0; o < Object.keys(resources).length; o++) {
-			if (resources[o].url === resources[0].url) { continue }
-			console.log(resources[o].url)
+		for (var o = Object.keys(resources).length - 1; o >= 0; o--) {
+			if (resources[o].url == resources[0].url) { continue }
 			var filename = resources[o].url.match(catchURI)
 			filename = filename[filename.length - 1].substring(1)
 			if (!filename.match(/\.\w+$/)) { continue }
-			console.log(filename)
 			var URI = new RegExp('([a-zA-Z0-9]|\\.|\:|\/)*(\\/)?' + filename, 'g')
 			var fullURI = resources[i].content.match(URI)
 			if (!fullURI) { continue }
-			console.log(fullURI)
 			var dataURI = Bundler.convertToDataURI(
 				resources[o].content,
 				filename.match(/\.\w+$/)[0]
@@ -145,6 +163,11 @@ Bundler.replaceResource = function(resources) {
 
 Bundler.convertToDataURI = function(content, extension) {
 	var dataURI = 'data:' + mime.lookup(extension) + ';base64,'
-	dataURI += new Buffer(content).toString('base64')
+	if (Bundler.isSearchableFile(extension)) {
+		dataURI += new Buffer(content).toString('base64')
+	}
+	else {
+		dataURI += content
+	}
 	return dataURI
 }
