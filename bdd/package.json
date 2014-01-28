@@ -9,7 +9,9 @@
     "chai": "~1.8.1",
     "request": "~2.27.0",
     "express": "~3.4.8",
-    "selenium-webdriver": "~2.39.0"
+    "selenium-webdriver": "~2.39.0",
+    "commander": "~2.1.0",
+    "glob": "~3.2.8"
   },
   "devDependencies": {
     "grunt": "~0.4.1",
@@ -29,6 +31,6 @@
     "test": "./test"
   },
   "scripts": {
-    "test": "mocha --timeout 10000 test.js --reporter list"
+    "test": "node_modules/mocha/bin/mocha --timeout 10000 test.js --reporter list"
   }
 }
