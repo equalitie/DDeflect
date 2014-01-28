@@ -79,18 +79,21 @@ Bundler.get('/', function(req, res) {
 				}
 				// We've loaded the page and know what its resources are.
 				// Now we download the resources and throw them into the zip file.
-				var bundledResources = 0
+				var fetchedResources = 0
 				zip.file('resources', JSON.stringify(resources))
+				Bundler.log('Begin fetching resources.'.inverse)
 				for (var i in resources) {
 					Bundler.fetchResource(resources[i].url, i, function(body, rn) {
-						bundledResources++
+						fetchedResources++
 						Bundler.log(
 							'Fetching resource ' + rn
 							+ ' ['.green + resources[rn].url.green + ']'.green
 						)
 						resources[rn].content = body
 						// zip.file(rn, body)
-						if (bundledResources === resourceNumber) {
+						if (fetchedResources === resourceNumber) {
+							Bundler.log('Done fetching resources.'.inverse)
+							Bundler.log('Begin scanning resources.'.inverse)
 							resources = Bundler.replaceResource(resources)
 							//res.end(zip.generate({base64: true, compression: 'DEFLATE'}))
 							Bundler.log('Serving bundle: '.bold + resources[0].url.green)
@@ -104,19 +107,23 @@ Bundler.get('/', function(req, res) {
 	})
 })
 
-Bundler.isSearchableFile = function(extension) {
-	if (mime.lookup(extension).match(/(text|css|javascript|plain)/)) {
-		return true
+Bundler.isSearchableFile = function(url) {
+	if (extension = url.match(/\.\w+($|\?)/)) {
+		extension = extension[0]
+		if (extension[extension.length - 1] === '?') {
+			extension = extension.substring(0, extension.length - 1)
+		}
+		if (mime.lookup(extension).match(/(text|css|javascript|plain)/)) {
+			return true
+		}
 	}
 	return false
 }
 
 Bundler.fetchResource = function(url, resourceNumber, callback) {
 	var enc = 'Base64'
-	if (extension = url.match(/\.\w+$/)) {
-		if (Bundler.isSearchableFile(extension[0])) {
-			enc = 'utf8'
-		}
+	if (Bundler.isSearchableFile(url)) {
+		enc = 'utf8'
 	}
 	if (resourceNumber == 0) {
 		enc = 'utf8'
@@ -130,32 +137,33 @@ Bundler.fetchResource = function(url, resourceNumber, callback) {
 }
 
 Bundler.replaceResource = function(resources) {
-	var catchURI = /(^https?:\/\/|\.{0,2}\/?)((?:\w|\-|\.)+)/g
+	var catchURI = /(^https?:\/\/|\.{0,2}\/?)((?:\w|-|@|\.|\?|\=|\&)+)/g
 	for (var i = Object.keys(resources).length - 1; i >= 0; i--) {
 		if (!resources[i].content) { continue }
-		if (resources[i].content.length > 2048) { continue }
-		if (extension = resources[i].url.match(/\.\w+$/)) {
-			if (!Bundler.isSearchableFile(extension[0])) {
+		if (resources[i].content.length > 262144) { continue }
+		if (resources[i].url !== resources[0].url) {
+			if (!Bundler.isSearchableFile(resources[i].url)) {
 				continue
 			}
 		}
+		Bundler.log(
+			'Scanning resource ' + i
+			+ ' [' + resources[i].url + ']'
+		)
 		for (var o = Object.keys(resources).length - 1; o >= 0; o--) {
+			Bundler.log('Metascanning [' + resources[o].url + ']')
 			if (resources[o].url == resources[0].url) { continue }
 			var filename = resources[o].url.match(catchURI)
-			filename = filename[filename.length - 1].substring(1)
-			if (!filename.match(/\.\w+$/)) { continue }
-			var URI = new RegExp('([a-zA-Z0-9]|\\.|\:|\/)*(\\/)?' + filename, 'g')
-			var fullURI = resources[i].content.match(URI)
-			if (!fullURI) { continue }
+			filename = filename[filename.length - 1]
+			if (!filename.match(/\/(\w|-|@)+\.\w+$/)) { continue }
+			filename = filename.substring(1)
+			//var URI = new RegExp('(\\w|\\.|\:|\\/)*(\\/)?' + filename, 'g')
+			var URI = new RegExp('(\'|")(\\w|:|\\/|-|@|\\.*)*' + filename + '(\'|\")', 'g')
 			var dataURI = Bundler.convertToDataURI(
 				resources[o].content,
 				filename.match(/\.\w+$/)[0]
 			)
-			for (var p in fullURI) {
-				resources[i].content = resources[i].content.replace(
-					fullURI[p], dataURI
-				)
-			}
+			resources[i].content = resources[i].content.replace(URI, '"' + dataURI + '"')
 		}
 	}
 	return resources
