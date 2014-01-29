@@ -76,6 +76,8 @@ Bundler.get('/', function(req, res) {
 				if (status !== 'success') {
 					// Handle page load failure here
 					// THIS IS NOT DONE NADIM!
+					Bundler.log('Abort'.red.bold)
+					return false
 				}
 				// We've loaded the page and know what its resources are.
 				// Now we download the resources and throw them into the zip file.
@@ -83,6 +85,7 @@ Bundler.get('/', function(req, res) {
 				zip.file('resources', JSON.stringify(resources))
 				Bundler.log('Begin fetching resources.'.inverse)
 				for (var i in resources) {
+					if (!resources[i].url.match('^http')) { continue }
 					Bundler.fetchResource(resources[i].url, i, function(body, rn) {
 						fetchedResources++
 						Bundler.log(
@@ -113,7 +116,9 @@ Bundler.isSearchableFile = function(url) {
 		if (extension[extension.length - 1] === '?') {
 			extension = extension.substring(0, extension.length - 1)
 		}
-		if (mime.lookup(extension).match(/(text|css|javascript|plain)/)) {
+		if (mime.lookup(extension).match(
+			/(text|css|javascript|plain|json|xml|octet\-stream)/
+		)) {
 			return true
 		}
 	}
@@ -155,15 +160,16 @@ Bundler.replaceResource = function(resources) {
 			if (resources[o].url == resources[0].url) { continue }
 			var filename = resources[o].url.match(catchURI)
 			filename = filename[filename.length - 1]
-			if (!filename.match(/\/(\w|-|@)+\.\w+$/)) { continue }
+			if (!filename.match(/\/(\w|-|@)+\.(\w|\?|\=)+$/)) { continue }
 			filename = filename.substring(1)
+			// console.log(filename)
 			var dataURI = Bundler.convertToDataURI(
 				resources[o].content,
-				filename.match(/\.\w+$/)[0]
+				filename.match(/\.\w+/)[0]
 			)
 			var URI = [
-				new RegExp('(\'|")(\\w|:|\\/|-|@|\\.*)*' + filename + '(\'|\")', 'g'),
-				new RegExp('\\((\\w|:|\\/|-|@|\\.*)*' + filename + '\\)', 'g'),
+				new RegExp('(\'|")(\\w|:|\\/|-|@|\\.*)*' + filename.replace(/\?/g, '\\?') + '(\'|\")', 'g'),
+				new RegExp('\\((\\w|:|\\/|-|@|\\.*)*' + filename.replace(/\?/g, '\\?') + '\\)', 'g'),
 			]
 			for (var p in URI) {
 				if (p == 0) {
