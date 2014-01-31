@@ -186,7 +186,7 @@ Bundler.replaceResource = function(resources) {
 			// console.log(filename)
 			var dataURI = Bundler.convertToDataURI(
 				resources[o].content,
-				filename.match(/\.\w+/)[0]
+				filename
 			)
 			var URI = [
 				new RegExp('(\'|")(\\w|:|\\/|-|@|\\.*)*' + filename.replace(/\?/g, '\\?') + '(\'|\")', 'g'),
@@ -206,6 +206,12 @@ Bundler.replaceResource = function(resources) {
 }
 
 Bundler.convertToDataURI = function(content, extension) {
+	if (extension = extension.match(/\.\w+/)) {
+		extension = extension[0]
+	}
+	else {
+		extension = '.html'
+	}
 	var dataURI = 'data:' + mime.lookup(extension) + ';base64,'
 	if (Bundler.isSearchableFile(extension)) {
 		dataURI += new Buffer(content).toString('base64')
