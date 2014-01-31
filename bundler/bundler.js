@@ -52,23 +52,33 @@ http.createServer(Bundler).listen(3000, function() {
 
 Bundler.get('/', function(req, res) {
 	if (!req.query.url) { res.end('');return }
-	Bundler.log('Got a request for ' + req.query.url.green)
 	// Initialize object for the collection of resources the website is dependent on.
 	// We will fetch these resources as part of the bundle.
-	var zip = new nodezip()
+	// var zip = new nodezip()
 	var resources = {}
 	var resourceNumber = 0
 	var pageLoadedCutoff = false
+	var resourceDomain = req.query.url
+		.match(/^https?:\/\/(\w|\.)+(\/|$)/)[0]
+		.match(/\w+\.\w+(\.\w+)?(\/|$)/)[0]
+	if (resourceDomain[resourceDomain.length - 1] !== '/') { resourceDomain += '/' }
+	Bundler.log(
+		'Got a request for ' + req.query.url.green + ' ' + '['.inverse
+		+ resourceDomain.substring(0, resourceDomain.length - 1).inverse + ']'.inverse
+	)
 	// Visit the website, determine its HTML and the resources it depends on.
 	phantom.create(function(ph) {
 		ph.createPage(function(page) {
-			Bundler.log('Bundling has begun for ' + req.query.url.green)
+			Bundler.log('Initializing bundling for ' + req.query.url.green)
 			page.set('onResourceRequested', function(request, networkRequest) {
 				if (!pageLoadedCutoff) {
-					resources[resourceNumber] = {
-						url: request.url
+					if (request.url.match('^http')
+					&& request.url.match(resourceDomain)) {
+						resources[resourceNumber] = {
+							url: request.url
+						}
+						resourceNumber++
 					}
-					resourceNumber++
 				}
 			})
 			page.open(req.query.url, function(status) {
@@ -82,16 +92,11 @@ Bundler.get('/', function(req, res) {
 				// We've loaded the page and know what its resources are.
 				// Now we download the resources and throw them into the zip file.
 				var fetchedResources = 0
-				zip.file('resources', JSON.stringify(resources))
+				// zip.file('resources', JSON.stringify(resources))
 				Bundler.log('Begin fetching resources.'.inverse)
 				for (var i in resources) {
-					if (!resources[i].url.match('^http')) { continue }
 					Bundler.fetchResource(resources[i].url, i, function(body, rn) {
 						fetchedResources++
-						Bundler.log(
-							'Fetching resource ' + rn
-							+ ' ['.green + resources[rn].url.green + ']'.green
-						)
 						resources[rn].content = body
 						// zip.file(rn, body)
 						if (fetchedResources === resourceNumber) {
@@ -134,8 +139,24 @@ Bundler.fetchResource = function(url, resourceNumber, callback) {
 		enc = 'utf8'
 	}
 	request(url,
-		{ method: 'GET', encoding: enc },
+		{
+			method: 'GET',
+			encoding: enc,
+			timeout: 8000
+		},
 		function(error, response, body) {
+			if (error) {
+				Bundler.log(
+					'ERROR'.red.bold + ' fetching resource'
+					+ ' ['.red + url.red + ']'.red
+				)
+			}
+			else {
+				Bundler.log(
+					'Fetched resource ' + resourceNumber
+					+ ' ['.green + url.green + ']'.green
+				)
+			}
 			callback(body, resourceNumber)
 		}
 	)
@@ -152,11 +173,11 @@ Bundler.replaceResource = function(resources) {
 			}
 		}
 		Bundler.log(
-			'Scanning resource ' + i
-			+ ' [' + resources[i].url + ']'
+			'Scanning resource '.bold + i.toString().inverse
+			+ ' ' + '['.cyan + resources[i].url.toString().cyan + ']'.cyan
 		)
 		for (var o = Object.keys(resources).length - 1; o >= 0; o--) {
-			Bundler.log('Metascanning [' + resources[o].url + ']')
+			Bundler.log('Metascanning ' + '['.blue + resources[o].url.toString().blue + ']'.blue)
 			if (resources[o].url == resources[0].url) { continue }
 			var filename = resources[o].url.match(catchURI)
 			filename = filename[filename.length - 1]
