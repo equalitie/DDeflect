@@ -17,9 +17,6 @@ import logging
 
 <<<<<<< HEAD
 PORT = 30001
-=======
-PORT = 81000
->>>>>>> 31bce2d50e1b9e402bde6e7d3c925fefcafbc378
 PACKAGE_LIST = [ "python-swabber" ]
 
 def getPlatform():
@@ -35,11 +32,7 @@ def scanPackagesApt():
     status, output = commands.getstatusoutput("/usr/bin/dpkg -l")
     if status:
         logging.error("Couldn't list packages!")
-<<<<<<< HEAD
         return {"status": False, "message": "Couldn't list packages!"}
-=======
-        return {"status": status, "message": "Couldn't list packages!"}
->>>>>>> 31bce2d50e1b9e402bde6e7d3c925fefcafbc378
 
     for line in output:
         line = line.strip().split(" ")
@@ -48,11 +41,7 @@ def scanPackagesApt():
 
         if name in PACKAGE_LIST:
             packagedata[name] = version
-<<<<<<< HEAD
     return {"status": True, "message": packagedata}
-=======
-    return packagedata
->>>>>>> 31bce2d50e1b9e402bde6e7d3c925fefcafbc378
 
 scanPackages = {
     "debian": scanPackagesApt,
@@ -62,7 +51,6 @@ scanPackages = {
 class StatGetter(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def do_GET(self):
 
-<<<<<<< HEAD
         failed = True
         alldata = {}
         package_scan = scanPackages()
@@ -71,19 +59,13 @@ class StatGetter(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.send_response(500)
             self.wfile.write(package_scan["message"])
             return
-=======
         alldata = {}
         alldata["packagedata"] = scanPackages()
->>>>>>> 31bce2d50e1b9e402bde6e7d3c925fefcafbc378
 
         self.send_response(200)
         self.send_header('Content-type','application/json')
         self.end_headers()
-<<<<<<< HEAD
         self.wfile.write(json.dumps(alldata))
-=======
-        self.wfile.write(json.dump(alldata))
->>>>>>> 31bce2d50e1b9e402bde6e7d3c925fefcafbc378
         return
 
 httpd = SocketServer.ForkingTCPServer(('', PORT), StatGetter)
