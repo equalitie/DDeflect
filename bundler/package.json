@@ -1,17 +1,18 @@
 {
-	"name": "Bundler",
-	"version": "0.0.1",
-	"author": "Nadim Kobeissi <nadim@equalit.ie>",
-	"private": true,
-	"scripts": {
-		"start": "node bundler"
-	},
-	"dependencies": {
-		"node-zip": "latest",
-		"express": "latest",
-		"request": "latest",
-		"phantom": "latest",
-		"phantomjs": "latest",
-		"colors": "latest"
-	}
+  "name": "Bundler",
+  "version": "0.0.1",
+  "author": "Nadim Kobeissi <nadim@equalit.ie>",
+  "private": true,
+  "scripts": {
+    "start": "node bundler"
+  },
+  "dependencies": {
+    "node-zip": "latest",
+    "express": "latest",
+    "request": "latest",
+    "phantom": "latest",
+    "phantomjs": "latest",
+    "colors": "latest",
+    "mime": "~1.2.11"
+  }
 }
