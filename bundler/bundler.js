@@ -177,7 +177,7 @@ Bundler.replaceResource = function(resources) {
 			+ ' ' + '['.cyan + resources[i].url.toString().cyan + ']'.cyan
 		)
 		for (var o = Object.keys(resources).length - 1; o >= 0; o--) {
-			Bundler.log('Metascanning ' + '['.blue + resources[o].url.toString().blue + ']'.blue)
+			Bundler.log('Bundling ' + '['.blue + resources[o].url.toString().blue + ']'.blue)
 			if (resources[o].url == resources[0].url) { continue }
 			var filename = resources[o].url.match(catchURI)
 			filename = filename[filename.length - 1]
