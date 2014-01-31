@@ -181,7 +181,7 @@ Bundler.replaceResource = function(resources) {
 			if (resources[o].url == resources[0].url) { continue }
 			var filename = resources[o].url.match(catchURI)
 			filename = filename[filename.length - 1]
-			if (!filename.match(/\/(\w|-|@)+\.(\w|\?|\=)+$/)) { continue }
+			if (!filename.match(/\/(\w|-|@)+(\w|\?|\=|\.)+$/)) { continue }
 			filename = filename.substring(1)
 			// console.log(filename)
 			var dataURI = Bundler.convertToDataURI(
