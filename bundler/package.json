@@ -1,13 +1,13 @@
 {
-  "name": "Bundler",
-  "version": "0.0.1",
+	"name": "Bundler",
+	"version": "0.0.1",
 	"author": "Nadim Kobeissi <nadim@equalit.ie>",
 	"private": true,
 	"scripts": {
 		"start": "node bundler"
 	},
 	"dependencies": {
-	"crypto-js": "latest",
+		"crypto-js": "latest",
 		"express": "latest",
 		"request": "latest",
 		"phantom": "latest",
