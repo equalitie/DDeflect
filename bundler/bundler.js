@@ -2,15 +2,15 @@
 * Load dependencies.
 */
 
-var express = require('express')
-var phantom = require('phantom')
-var request = require('request')
-var nodezip = require('node-zip')
-var colors  = require('colors')
-var mime    = require('mime')
-var http    = require('http')
-var path    = require('path')
-var fs      = require('fs')
+var CryptoJS  = require('crypto-js')
+var express   = require('express')
+var phantom   = require('phantom')
+var request   = require('request')
+var colors    = require('colors')
+var mime      = require('mime')
+var http      = require('http')
+var path      = require('path')
+var fs        = require('fs')
 
 /*
 * Disable warnings
@@ -23,6 +23,12 @@ console.warn = function() {}
 */
 
 var Bundler = express()
+var Debundler = ''
+
+fs.readFile('debundler.html', function(err, data) {
+	if (err) { throw err }
+	Debundler = data.toString()
+})
 
 Bundler.configure(function() {
 	Bundler.use(express.compress())
@@ -54,7 +60,6 @@ Bundler.get('/', function(req, res) {
 	if (!req.query.url) { res.end('');return }
 	// Initialize object for the collection of resources the website is dependent on.
 	// We will fetch these resources as part of the bundle.
-	// var zip = new nodezip()
 	var resources = {}
 	var resourceNumber = 0
 	var pageLoadedCutoff = false
@@ -86,26 +91,24 @@ Bundler.get('/', function(req, res) {
 				if (status !== 'success') {
 					// Handle page load failure here
 					// THIS IS NOT DONE NADIM!
-					Bundler.log('Abort'.red.bold)
+					Bundler.log('Abort'.red.bold + ': ' + status)
 					return false
 				}
 				// We've loaded the page and know what its resources are.
-				// Now we download the resources and throw them into the zip file.
 				var fetchedResources = 0
-				// zip.file('resources', JSON.stringify(resources))
 				Bundler.log('Begin fetching resources.'.inverse)
 				for (var i in resources) {
 					Bundler.fetchResource(resources[i].url, i, function(body, rn) {
 						fetchedResources++
 						resources[rn].content = body
-						// zip.file(rn, body)
 						if (fetchedResources === resourceNumber) {
 							Bundler.log('Done fetching resources.'.inverse)
 							Bundler.log('Begin scanning resources.'.inverse)
 							resources = Bundler.replaceResource(resources)
-							//res.end(zip.generate({base64: true, compression: 'DEFLATE'}))
+							Bundler.log('Encrypting bundle: '.bold + resources[0].url.green)
+							var encrypted = CryptoJS.AES.encrypt(resources[0].content, 'funnybunny').toString()
 							Bundler.log('Serving bundle: '.bold + resources[0].url.green)
-							res.end(resources[0].content)
+							res.end(Debundler.replace('OTOxRiVdfw1F6vCQZCV1Zs1JrvZKkC2m', encrypted))
 						}
 					})
 				}
