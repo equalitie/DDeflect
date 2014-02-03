@@ -16,7 +16,7 @@ import commands
 import logging
 
 PORT = 30001
-PACKAGE_LIST = [ "python-swabber" ]
+PACKAGE_LIST = [ "python-swabber", "emacs" ]
 
 def getPlatform():
     #TODO
@@ -33,8 +33,10 @@ def scanPackagesApt():
         logging.error("Couldn't list packages!")
         return {"status": False, "message": "Couldn't list packages!"}
 
+    output = output.split("\n")[5:]
+
     for line in output:
-        line = line.strip().split(" ")
+        line = line.strip().split()
         state, name, version, arch = line[:4]
         description = line[4:]
 
@@ -59,7 +61,7 @@ class StatGetter(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.wfile.write(package_scan["message"])
             return
         alldata = {}
-        alldata["packagedata"] = scanPackages()
+        alldata["packagedata"] = package_scan["message"]
 
         self.send_response(200)
         self.send_header('Content-type','application/json')
