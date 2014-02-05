@@ -106,7 +106,11 @@ Bundler.get('/', function(req, res) {
 							Bundler.log('Begin scanning resources.'.inverse)
 							resources = Bundler.replaceResource(resources)
 							Bundler.log('Encrypting bundle: '.bold + resources[0].url.green)
-							var encrypted = CryptoJS.AES.encrypt(resources[0].content, 'funnybunny').toString()
+							var key     = CryptoJS.enc.Hex.parse('0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a')
+							var iVector = CryptoJS.enc.Hex.parse('94949494949494949494949494949494')
+							var encrypted = CryptoJS.AES.encrypt(
+								resources[0].content, key, {iv: iVector}
+							).toString()
 							Bundler.log('Serving bundle: '.bold + resources[0].url.green)
 							res.end(Debundler.replace('OTOxRiVdfw1F6vCQZCV1Zs1JrvZKkC2m', encrypted))
 						}
