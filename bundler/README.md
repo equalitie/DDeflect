@@ -1,6 +1,6 @@
 # Bundler
 
-Programmed by Nadim "**the Dream**" Kobeissi  
+Programmed by Nadim "*the Dream*" Kobeissi  
 
 ## Installation
 1. [Install PhantomJS](http://phantomjs.org/download.html) on your system.  
