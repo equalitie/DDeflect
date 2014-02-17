@@ -7,11 +7,12 @@
 		"start": "node bundler"
 	},
 	"dependencies": {
+		"portscanner": "latest",
+		"phantomjs": "latest",
 		"crypto-js": "latest",
 		"express": "latest",
 		"request": "latest",
 		"phantom": "latest",
-		"phantomjs": "latest",
 		"colors": "latest",
 		"mime": "latest"
 	}
