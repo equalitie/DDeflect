@@ -68,9 +68,30 @@ Bundler.beginProcess = function(req, res) {
 	var resources = {}
 	var resourceNumber = 0
 	var pageLoadedCutoff = false
-	var resourceDomain = req.query.url
-		.match(/^https?:\/\/(\w|\.)+(\/|$)/)[0]
-		.match(/\w+\.\w+(\.\w+)?(\/|$)/)[0]
+	var resourceDomain = undefined
+	var resourceURL = undefined
+
+	if (req.query.url.indexOf("http") == -1) { 
+		// we're being passed a query with no host - let's see if we can get a passed location
+		Bundler.log("No valid url present in query \"" + req.query.url + "\" - attempting to get host")
+		if (typeof(req.headers["host"]) !== "undefined") { 
+			resourceDomain = req.headers["host"] + "/"
+			Bundler.log("Got a valid host of " + req.headers["host"])
+			// YES THIS IS DUMB LET'S FIX IT IN POST
+			resourceURL = "http://" + resourceDomain + req.query.url
+	    	} else { 
+			Bundler.log("Failed to get a valid host - request invalid")
+			res.end('')
+			return
+	    	}
+	} else { 
+
+		resourceDomain = req.query.url
+			.match(/^https?:\/\/(\w|\.)+(\/|$)/)[0]
+			.match(/\w+\.\w+(\.\w+)?(\/|$)/)[0]
+		resourceURL = req.query.url
+	}
+    
 	if (resourceDomain[resourceDomain.length - 1] !== '/') { resourceDomain += '/' }
 	Bundler.log(
 		'Got a request for ' + req.query.url.green + ' ' + '['.inverse
