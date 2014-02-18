@@ -69,7 +69,6 @@ Bundler.beginProcess = function(req, res) {
 	var resourceNumber = 0
 	var pageLoadedCutoff = false
 	var resourceDomain = undefined
-	var resourceURL = undefined
 
 	if (req.query.url.indexOf("http") == -1) { 
 		// we're being passed a query with no host - let's see if we can get a passed location
@@ -77,8 +76,12 @@ Bundler.beginProcess = function(req, res) {
 		if (typeof(req.headers["host"]) !== "undefined") { 
 			resourceDomain = req.headers["host"] + "/"
 			Bundler.log("Got a valid host of " + req.headers["host"])
-			// YES THIS IS DUMB LET'S FIX IT IN POST
-			resourceURL = "http://" + resourceDomain + req.query.url
+			// There are two obscenely dumb things happening here. 
+			// * Under no circumstances should I be forcing http - this will 
+			// need to be something that we set per-origin
+			// * Redefining req.query.url is obviously awful. I did this 
+			// because I'm no good at this javascripting and didn't want to mess with mainProcess. 
+			req.query.url = "http://" + resourceDomain + req.query.url
 	    	} else { 
 			Bundler.log("Failed to get a valid host - request invalid")
 			res.end('')
@@ -89,7 +92,6 @@ Bundler.beginProcess = function(req, res) {
 		resourceDomain = req.query.url
 			.match(/^https?:\/\/(\w|\.)+(\/|$)/)[0]
 			.match(/\w+\.\w+(\.\w+)?(\/|$)/)[0]
-		resourceURL = req.query.url
 	}
     
 	if (resourceDomain[resourceDomain.length - 1] !== '/') { resourceDomain += '/' }
