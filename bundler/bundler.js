@@ -2,19 +2,19 @@
 * Load dependencies.
 */
 
-var portScanner = require('portscanner')
-var CryptoJS    = require('crypto-js')
-var express     = require('express')
-var phantom     = require('phantom')
-var request     = require('request')
-var colors      = require('colors')
-var mime        = require('mime')
-var http        = require('http')
-var path        = require('path')
-var fs          = require('fs')
+var portScanner = require('portscanner'),
+	CryptoJS    = require('crypto-js'),
+	express     = require('express'),
+	phantom     = require('phantom'),
+	request     = require('request'),
+	colors      = require('colors'),
+	mime        = require('mime'),
+	http        = require('http'),
+	path        = require('path'),
+	fs          = require('fs')
 
 /*
-* Disable warnings
+* Disable warnings.
 */
 
 console.warn = function() {}
@@ -38,7 +38,7 @@ Bundler.configure(function() {
 })
 
 Bundler.log = function(message) {
-	console.log('[BUNDLER]'.red.bold + ' ' + message)
+	console.log('[BUNDLER]'.red.bold, message)
 }
 
 http.createServer(Bundler).listen(3000, function() {
@@ -65,9 +65,6 @@ Bundler.beginProcess = function(req, res) {
 	if (!req.query.url) { res.end('');return }
 	// Initialize object for the collection of resources the website is dependent on.
 	// We will fetch these resources as part of the bundle.
-	var resources = {}
-	var resourceNumber = 0
-	var pageLoadedCutoff = false
 	var resourceDomain = req.query.url
 		.match(/^https?:\/\/(\w|\.)+(\/|$)/)[0]
 		.match(/\w+\.\w+(\.\w+)?(\/|$)/)[0]
@@ -81,8 +78,11 @@ Bundler.beginProcess = function(req, res) {
 		phantom.create(function(ph) {
 			ph.createPage(function(page) {
 				Bundler.mainProcess(
-					req, res, resources, resourceNumber,
-					pageLoadedCutoff, resourceDomain, ph, page
+					req, res, {
+						ph: ph,
+						page: page,
+						resourceDomain: resourceDomain
+					}
 				)
 			})
 		}, {port: freePort}
@@ -90,21 +90,24 @@ Bundler.beginProcess = function(req, res) {
 	})
 }
 
-Bundler.mainProcess = function(req, res, resources, resourceNumber, pageLoadedCutoff, resourceDomain, ph, page) {
+Bundler.mainProcess = function(req, res, process) {
+	process.resources = {}
+	process.resourceNumber = 0
+	process.pageLoadedCutoff = false
 	Bundler.log('Initializing bundling for ' + req.query.url.green)
-	page.set('onResourceRequested', function(request, networkRequest) {
-		if (!pageLoadedCutoff) {
+	process.page.set('onResourceRequested', function(request, networkRequest) {
+		if (!process.pageLoadedCutoff) {
 			if (request.url.match('^http')
-			&& request.url.match(resourceDomain)) {
-				resources[resourceNumber] = {
+			&& request.url.match(process.resourceDomain)) {
+				process.resources[process.resourceNumber] = {
 					url: request.url
 				}
-				resourceNumber++
+				process.resourceNumber++
 			}
 		}
 	})
-	page.open(req.query.url, function(status) {
-		pageLoadedCutoff = true
+	process.page.open(req.query.url, function(status) {
+		process.pageLoadedCutoff = true
 		if (status !== 'success') {
 			// Handle page load failure here
 			// THIS IS NOT DONE NADIM!
@@ -114,26 +117,27 @@ Bundler.mainProcess = function(req, res, resources, resourceNumber, pageLoadedCu
 		// We've loaded the page and know what its resources are.
 		var fetchedResources = 0
 		Bundler.log('Begin fetching resources.'.inverse)
-		for (var i in resources) {
-			Bundler.fetchResource(resources[i].url, i, function(body, rn) {
+		for (var i in process.resources) {
+			Bundler.fetchResource(process.resources[i].url, i, function(body, rn) {
 				fetchedResources++
-				resources[rn].content = body
-				if (fetchedResources === resourceNumber) {
+				process.resources[rn].content = body
+				if (fetchedResources == process.resourceNumber) {
 					Bundler.log('Done fetching resources.'.inverse)
 					Bundler.log('Begin scanning resources.'.inverse)
-					resources = Bundler.replaceResource(resources)
-					Bundler.log('Encrypting bundle: '.bold + resources[0].url.green)
+					process.resources = Bundler.replaceResource(process.resources)
+					Bundler.log('Encrypting bundle: '.bold + process.resources[0].url.green)
 					var key     = CryptoJS.enc.Hex.parse('0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a')
 					var iVector = CryptoJS.enc.Hex.parse('94949494949494949494949494949494')
 					var encrypted = CryptoJS.AES.encrypt(
-						resources[0].content, key, {iv: iVector}
+						process.resources[0].content, key, {iv: iVector}
 					).toString()
-					Bundler.log('Serving bundle: '.bold + resources[0].url.green)
+					Bundler.log('Serving bundle: '.bold + process.resources[0].url.green)
 					res.end(Debundler.replace('OTOxRiVdfw1F6vCQZCV1Zs1JrvZKkC2m', encrypted))
 				}
+
 			})
 		}
-		ph.exit()
+		process.ph.exit()
 	})
 }
 
@@ -175,7 +179,7 @@ Bundler.fetchResource = function(url, resourceNumber, callback) {
 			}
 			else {
 				Bundler.log(
-					'Fetched resource ' + resourceNumber
+					'Fetched resource ' + resourceNumber.toString().inverse
 					+ ' ['.green + url.green + ']'.green
 				)
 			}
@@ -205,7 +209,6 @@ Bundler.replaceResource = function(resources) {
 			filename = filename[filename.length - 1]
 			if (!filename.match(/\/(\w|-|@)+(\w|\?|\=|\.)+$/)) { continue }
 			filename = filename.substring(1)
-			// console.log(filename)
 			var dataURI = Bundler.convertToDataURI(
 				resources[o].content,
 				filename
