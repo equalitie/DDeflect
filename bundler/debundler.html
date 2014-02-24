@@ -36,7 +36,7 @@
 			var iVector   = CryptoJS.enc.Hex.parse('94949494949494949494949494949494')
 			var encrypted = document.getElementById('c').innerHTML
 			var decrypted = CryptoJS.AES.decrypt(encrypted, key, {iv: iVector})
-			document.write(decrypted.toString(CryptoJS.enc.Latin1))
+			document.write(decrypted.toString(CryptoJS.enc.Utf8))
 			document.close()
 		}
 	</script>
