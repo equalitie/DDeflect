@@ -88,8 +88,6 @@ Bundler.beginProcess = function(req, res) {
 	    	}
 	} else { 
 		if (!req.query.url) { res.end('');return }
-
-		if (!req.query.url) { res.end('');return }
 		resourceDomain = req.query.url
 			.match(/^https?:\/\/(\w|\.)+(\/|$)/)[0]
 			.match(/\w+\.\w+(\.\w+)?(\/|$)/)[0]
