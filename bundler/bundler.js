@@ -62,7 +62,6 @@ Bundler.get('/', function(req, res) {
 })
 
 Bundler.beginProcess = function(req, res) {
-	if (!req.query.url) { res.end('');return }
 	// Initialize object for the collection of resources the website is dependent on.
 	// We will fetch these resources as part of the bundle.
 	var resources = {}
@@ -88,6 +87,7 @@ Bundler.beginProcess = function(req, res) {
 			return
 	    	}
 	} else { 
+		if (!req.query.url) { res.end('');return }
 
 		resourceDomain = req.query.url
 			.match(/^https?:\/\/(\w|\.)+(\/|$)/)[0]
