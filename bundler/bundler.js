@@ -87,6 +87,7 @@ Bundler.beginProcess = function(req, res) {
 			return
 	    	}
 	} else { 
+		if (!req.query.url) { res.end('');return }
 
 		if (!req.query.url) { res.end('');return }
 		resourceDomain = req.query.url
