@@ -20,6 +20,14 @@ var portScanner = require('portscanner'),
 console.warn = function() {}
 
 /*
+ * Catch exceptions so that we don't crash immediately 
+ */
+
+process.on('uncaughtException', function(err) {
+    console.error(err.stack);
+})
+
+/*
 * Initialize Bundler.
 */
 
