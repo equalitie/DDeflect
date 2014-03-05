@@ -41,7 +41,7 @@ Bundler.log = function(message) {
 	console.log('[BUNDLER]'.red.bold, message)
 }
 
-http.createServer(Bundler).listen(3000, function() {
+http.createServer(Bundler).listen(3000, "127.0.0.1", function() {
 	console.log('____  _   _ _   _ ____  _     _____ ____  '.rainbow.bold)
 	console.log('| __ )| | | | \\ | |  _ \\| |   | ____|  _ \\ '.rainbow.bold)
 	console.log('|  _ \\| | | |  \\| | | | | |   |  _| | |_) |'.rainbow.bold)
@@ -62,7 +62,6 @@ Bundler.get('/', function(req, res) {
 })
 
 Bundler.beginProcess = function(req, res) {
-	if (!req.query.url) { res.end('');return }
 	// Initialize object for the collection of resources the website is dependent on.
 	// We will fetch these resources as part of the bundle.
 	var resources = {}
@@ -88,7 +87,7 @@ Bundler.beginProcess = function(req, res) {
 			return
 	    	}
 	} else {
-
+		if (!req.query.url) { res.end('');return }
 		resourceDomain = req.query.url
 			.match(/^https?:\/\/(\w|\.)+(\/|$)/)[0]
 			.match(/\w+\.\w+(\.\w+)?(\/|$)/)[0]
