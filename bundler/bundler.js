@@ -20,6 +20,14 @@ var portScanner = require('portscanner'),
 console.warn = function() {}
 
 /*
+ * Catch exceptions so that we don't crash immediately 
+ */
+
+process.on('uncaughtException', function(err) {
+    console.error(err.stack);
+})
+
+/*
 * Initialize Bundler.
 */
 
@@ -41,7 +49,7 @@ Bundler.log = function(message) {
 	console.log('[BUNDLER]'.red.bold, message)
 }
 
-http.createServer(Bundler).listen(3000, function() {
+http.createServer(Bundler).listen(3000, "127.0.0.1", function() {
 	console.log('____  _   _ _   _ ____  _     _____ ____  '.rainbow.bold)
 	console.log('| __ )| | | | \\ | |  _ \\| |   | ____|  _ \\ '.rainbow.bold)
 	console.log('|  _ \\| | | |  \\| | | | | |   |  _| | |_) |'.rainbow.bold)
@@ -62,12 +70,37 @@ Bundler.get('/', function(req, res) {
 })
 
 Bundler.beginProcess = function(req, res) {
-	if (!req.query.url) { res.end('');return }
 	// Initialize object for the collection of resources the website is dependent on.
 	// We will fetch these resources as part of the bundle.
-	var resourceDomain = req.query.url
-		.match(/^https?:\/\/(\w|\.)+(\/|$)/)[0]
-		.match(/\w+\.\w+(\.\w+)?(\/|$)/)[0]
+	var resources = {}
+	var resourceNumber = 0
+	var pageLoadedCutoff = false
+	var resourceDomain = undefined
+
+	if (req.query.url.indexOf("http") == -1) {
+		// we're being passed a query with no host - let's see if we can get a passed location
+		Bundler.log("No valid url present in query \"" + req.query.url + "\" - attempting to get host")
+		if (typeof(req.headers["host"]) !== "undefined") {
+			resourceDomain = req.headers["host"] + "/"
+			Bundler.log("Got a valid host of " + req.headers["host"])
+			// There are two obscenely dumb things happening here.
+			// * Under no circumstances should I be forcing http - this will
+			// need to be something that we set per-origin
+			// * Redefining req.query.url is obviously awful. I did this
+			// because I'm no good at this javascripting and didn't want to mess with mainProcess.
+			req.query.url = "http://" + resourceDomain + req.query.url
+	    	} else {
+			Bundler.log("Failed to get a valid host - request invalid")
+			res.end('')
+			return
+	    	}
+	} else {
+		if (!req.query.url) { res.end('');return }
+		resourceDomain = req.query.url
+			.match(/^https?:\/\/(\w|\.)+(\/|$)/)[0]
+			.match(/\w+\.\w+(\.\w+)?(\/|$)/)[0]
+	}
+
 	if (resourceDomain[resourceDomain.length - 1] !== '/') { resourceDomain += '/' }
 	Bundler.log(
 		'Got a request for ' + req.query.url.green + ' ' + '['.inverse
