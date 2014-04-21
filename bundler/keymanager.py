@@ -1,36 +1,68 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import jinja2
 import os
 import threading
+import flask
 
 TEMPLATE_PATH="."
 REFRESH_PERIOD=18000
 PORT=80
 
-class DebundlerMarker(object):
+class DebundlerMaker(object):
 
-    def __init__(self, template_path):
-        env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_path))
+    def __init__(self):
         self.genKeys()
-
         self.refresher = threading.Timer(REFRESH_PERIOD, self.genKeys())
 
     def genKeys(self):
         #TODO add expiry mechanism
-        self.key = os.urandom(16)
-        self.iv = os.urandom(16)
 
-    def getVedge(self):
-        return "10.0.0.1:1800"
+        keybytes = os.urandom(16)
+        ivbytes = os.urandom(16)
+        self.key = keybytes.encode("hex")
+        self.iv = ivbytes.encode("hex")
 
     def renderPage(self):
         template = env.get_template('debundler_template.html.j2')
-        template.render(key=self.key, iv=self.iv, v_edge_redirect=self.getVedge())
+        return template.render(key=self.key, iv=self.iv, v_edge_redirect=self.getVedge())
+
+class VedgeManager(object):
+    #This is one massive TODO
+    def __init__(self):
+        pass
+
+    def getVedge(self):
+        return "http://nosmo.me"
+
+class DebundlerServer(flask.Flask):
+
+    def __init__(self, port, debundler_maker, vedge_manager):
+        super(DebundlerServer, self).__init__("DebundlerServer")
+        self.debundler_maker = debundler_maker
+        self.vedge_manager = vedge_manager
+
+        self.route("/")(self.rootRoute)
+
+    def rootRoute(self):
+        v_edge = self.vedge_manager.getVedge()
+        key = self.debundler_maker.key
+        iv = self.debundler_maker.iv
+
+        render_result = flask.render_template("debundler_template.html.j2", key=unicode(key),
+                                             iv=unicode(iv), v_edge=unicode(v_edge))
+
+        resp = flask.Response(render_result, status=200)
+        resp.headers["Access-Control-Allow-Origin"] = v_edge
+        return resp
 
 def main():
 
-    d = DebundlerMarker(TEMPLATE_PATH)
+    d = DebundlerMaker()
+    v = VedgeManager()
+    s = DebundlerServer(8000, d, v)
+    s.run(debug=True)
 
 if __name__ == "__main__":
     main()
