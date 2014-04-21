@@ -6,7 +6,6 @@ import os
 import threading
 import flask
 
-TEMPLATE_PATH="."
 REFRESH_PERIOD=18000
 PORT=80
 
@@ -23,10 +22,6 @@ class DebundlerMaker(object):
         ivbytes = os.urandom(16)
         self.key = keybytes.encode("hex")
         self.iv = ivbytes.encode("hex")
-
-    def renderPage(self):
-        template = env.get_template('debundler_template.html.j2')
-        return template.render(key=self.key, iv=self.iv, v_edge_redirect=self.getVedge())
 
 class VedgeManager(object):
     #This is one massive TODO
