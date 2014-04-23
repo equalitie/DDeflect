@@ -1,0 +1,25 @@
+dnets:
+  - staging.deflect.ca
+
+remap: {
+    "mysite.com": {
+      "network": "staging.deflect.ca",
+      "hidden": "uas98u9ajaja",
+      "https": True,
+      "origin": "127.0.0.2",
+      "dns_records": {
+        "www": {"type": "CNAME", "value": "myothertestsite.com"},
+        "@": {"type": "A", "value": "127.0.0.1"}
+      }
+    },
+    "myothersite.com": {
+      "network": "staging.deflect.ca",
+      "hidden": "kauih98u9ajaja",
+      "https": False,
+      "origin": "127.0.0.3",
+      "dns_records": {
+        "www": {"type": "CNAME", "value": "myothersite.com"},
+        "@": {"type": "A", "value": "127.0.0.1"}
+      }
+  }
+}

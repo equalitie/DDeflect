@@ -1,0 +1,9 @@
+{% for site, attributes in remap[originstring].iteritems() %}
+regex_map    http://^(www\.)?{{site}}$/         http://{{attributes["hidden"]}}.origin.{{attributes["network"]}}/
+regex_map    http://{{attributes["hidden"]}}.{{site}}$/         http://{{attributes["hidden"]}}.origin.nocache.{{attributes["network"]}}/
+{% if attributes["https"] %}
+regex_map    https://^(www\.)?{{site}}$/         http://{{attributes["hidden"]}}.{{attributes["network"]}}/
+regex_map    https://{{attributes["hidden"]}}.{{site}}$/         http://{{attributes["hidden"]}}.{{attributes["network"]}}/
+{% endif %}
+
+{% endfor %}

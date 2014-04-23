@@ -1,0 +1,24 @@
+---
+
+- hosts: all
+  sudo: True
+  vars_files:
+    - clients.yml
+
+- hosts: staging
+  sudo: True
+  vars:
+    network: staging
+    originstring: staging.deflect.ca
+  roles:
+    - trafficserver
+    #- botnetdbp
+  vars_files:
+    - clients.yml
+
+- hosts: controller
+  sudo: True
+  roles:
+    - dns
+  vars_files:
+    - clients.yml
