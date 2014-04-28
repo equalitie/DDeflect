@@ -43,17 +43,19 @@
 	</script>
         <script type="application/javascript">
 	  window.onload = function(){
-              var xhr= new XMLHttpRequest();
+              var xhr = new XMLHttpRequest();
               xhr.open('GET', '{{v_edge}}/~nosmo/key.txt', true);
               xhr.onreadystatechange= function() {
-              if (this.readyState!==4) return;
-              alert('status is ' + this.status);
-              <!--if (this.status!==200) return;-->
-              returned_content = this.responseText;
-              document.getElementById("c").innerHtml = returned_content;
-              alert(returned_content);
-           };
-           xhr.send();
+
+              		alert('readyState is ' + this.readyState);
+              		if (this.readyState !== 4) return;
+              		alert('status is ' + this.status);
+              		<!--if (this.status!==200) return;-->
+              		returned_content = this.responseText;
+              		document.getElementById("c").innerHtml = returned_content;
+              		alert("Returned content is " + returned_content);
+             };
+             xhr.send();
           }
 	</script>
 
