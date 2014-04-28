@@ -47,14 +47,13 @@
               xhr.open('GET', '{{v_edge}}/~nosmo/key.txt', true);
               xhr.onreadystatechange= function() {
               if (this.readyState!==4) return;
-          alert(this.status)
-              <!--if (this.status!==200) return; // or whatever error handling you want->>
-          alert('got here');
-                  returned_content = this.responseText;
-                  document.getElementById("c").innerHtml = returned_content;
-          alert(returned_content);
-              };
-              xhr.send();
+              alert('status is ' + this.status);
+              <!--if (this.status!==200) return;-->
+              returned_content = this.responseText;
+              document.getElementById("c").innerHtml = returned_content;
+              alert(returned_content);
+           };
+           xhr.send();
           }
 	</script>
 
