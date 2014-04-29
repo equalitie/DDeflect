@@ -1,0 +1,18 @@
+---
+#- name: Install bind
+#  apt: pkg={{item}} state=installed
+#  with_items:
+#    - bind
+#  tags: dns
+
+#NOTE: inside the template we access "item.key" in order to access the
+#domain we're working with. it's odd but it works.
+- name: Per-site zone files
+  template: src=zone.j2 dest=/tmp/{{ item.key }}.zone owner=root group=root
+  with_dict: remap
+  tags: dns
+
+- name: Central DNS zone files
+  template: src=networkzone.j2 dest=/tmp/{{item}}.zone owner=root group=root
+  with_items: dnets
+  tags: dns

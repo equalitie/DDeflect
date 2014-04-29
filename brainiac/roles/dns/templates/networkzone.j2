@@ -1,0 +1,10 @@
+{% for edge in groups[item] %}
+{{edge}}    IN      A     {{hostvars[edge]['ansible_eth0']['ipv4']['address']}}
+{% endfor %}
+
+{% for site, siteattrs in remap.iteritems() %}
+{% if item == siteattrs["network"] %}
+{{siteattrs["hidden"]}}.origin     IN           A       {{siteattrs["origin"]}}
+{{siteattrs["hidden"]}}.origin.nocache     IN           A       {{siteattrs["origin"]}}
+{% endif %}
+{% endfor %}

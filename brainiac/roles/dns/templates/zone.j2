@@ -1,0 +1,3 @@
+{% for domain, attributes in remap[item.key]["dns_records"].iteritems() %}
+{{domain}}       IN      {{attributes["type"]}}    {{attributes["value"]}}
+{% endfor %}

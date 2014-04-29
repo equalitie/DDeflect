@@ -1,0 +1,12 @@
+---
+- name: Install ATS
+  apt: pkg={{item}} state=installed
+  with_items:
+    - trafficserver
+  tags: ats
+
+- name: remap config
+  template: src=remap.conf.j2 dest=/usr/local/trafficserver/remap.conf owner=root group=root
+  notify:
+    - restart ats
+  tags: ats
