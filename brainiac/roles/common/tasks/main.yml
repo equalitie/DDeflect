@@ -1,7 +1,8 @@
 ---
 
 - name: Install basic package requirements
-  apt: pkg=$item state=installed
+  apt: pkg={{item}} state=installed
+  with_items:
     - sudo
     - rsync
     - ntp
@@ -13,7 +14,7 @@
   service: name=ntp state=running enabled=yes
 
 - name: Set up sudoers
-  copy src=sudoers dest=/etc/sudoers
+  copy: src=sudoers dest=/etc/sudoers
 
 - name: Create traffiserver group
   group: name=trafserv state=present gid=99
@@ -31,5 +32,5 @@
   command: /bin/cp /usr/share/zoneinfo/{{ timezone }} /etc/localtime
 
 - name: set /etc/timezone to {{ timezone }}
-  template: src=templates/etc/timezone dest=/etc/timezone
+  template: src=timezone dest=/etc/timezone
   notify: update tzdata

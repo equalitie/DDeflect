@@ -4,6 +4,11 @@
   sudo: True
   vars_files:
     - clients.yml
+  vars:
+    locale: en_US.UTF-8
+    timezone: UTC
+  roles:
+    - common
 
 - hosts: staging
   sudo: True
