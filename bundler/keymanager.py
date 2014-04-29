@@ -49,7 +49,6 @@ class DebundlerServer(flask.Flask):
                                              iv=unicode(iv), v_edge=unicode(v_edge))
 
         resp = flask.Response(render_result, status=200)
-        resp.headers["Access-Control-Allow-Origin"] = v_edge
         return resp
 
 def main():
