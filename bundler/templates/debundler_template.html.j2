@@ -31,19 +31,37 @@
 		this._hasher;a=e.finalize(a);e.reset();return e.finalize(this._oKey.clone().concat(a))}})})();
 	</script>
 	<script type="application/javascript">
-		function decryptBundle(encrypted) {
+		var constantTimeCompare = function(str1, str2) {
+			if (str1.length !== str2.length) {
+				return false
+			}
+			var result = 0
+			for (var i = 0; i < str1.length; i++) {
+				result |= str1[i].charCodeAt(0) ^ str2[i].charCodeAt(0)
+			}
+			return result === 0
+		}
+
+		var decryptBundle = function(encrypted, HMAC) {
 			var key       = CryptoJS.enc.Hex.parse('{{key}}')
 			var iVector   = CryptoJS.enc.Hex.parse('{{iv}}')
+			var HMACKey   = CryptoJS.enc.Hex.parse('{{hmackey}}')
 			// var key       = CryptoJS.enc.Hex.parse('0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a')
 			// var iVector   = CryptoJS.enc.Hex.parse('94949494949494949494949494949494')
-			var decrypted = CryptoJS.AES.decrypt(encrypted, key, {iv: iVector})
-			var decryptedString = decrypted.toString(CryptoJS.enc.Utf8)
-			document.write(decryptedString)
-			document.close()
+			// var HMACKey   = CryptoJS.enc.Hex.parse('f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7')
+			var ourHMAC   = CryptoJS.HmacSHA256(encrypted, HMACKey).toString()
+			if (constantTimeCompare(HMAC, ourHMAC)) {
+				var decrypted = CryptoJS.AES.decrypt(encrypted, key, {iv: iVector})
+				document.write(decrypted.toString(CryptoJS.enc.Utf8))
+				document.close()
+			}
+			else {
+				// TODO say we failed
+				alert('Integrity check failed.')
+			}
 		}
-	</script>
-	<script type="application/javascript">
-		function getBundle() {
+
+		var getBundle = function() {
 			var xhr = new XMLHttpRequest()
 			xhr.open('GET', '{{v_edge}}/~nosmo/test.txt', true)
 			xhr.onreadystatechange = function() {
@@ -51,7 +69,7 @@
 				if (this.status !== 200) return
 				// TODO pingback and say we failed to load
 				var returnedContent = this.responseText
-				document.getElementById("c").innerHTML = returnedContent
+				// Hugh, you also need to find a way to communicate the HMAC now.
 				decryptBundle(returnedContent)
 			}
 			xhr.send()
@@ -60,6 +78,5 @@
 </head>
 <body onload="getBundle()">
 	<noscript>JavaScript is required to display the contents of this page!</noscript>
-	<div id="c" style="display:none"></div>
 </body>
 </html>

@@ -7,13 +7,16 @@
 		"start": "node bundler"
 	},
 	"dependencies": {
-		"portscanner": "latest",
-		"phantomjs": "latest",
-		"crypto-js": "latest",
-		"express": "latest",
-		"request": "latest",
-		"phantom": "latest",
-		"colors": "latest",
-		"mime": "latest"
+		"method-override": "latest",
+		"body-parser":     "latest",
+		"compression":     "latest",
+		"portscanner":     "latest",
+		"phantomjs":       "latest",
+		"crypto-js":       "latest",
+		"express":         "latest",
+		"request":         "latest",
+		"phantom":         "latest",
+		"colors":          "latest",
+		"mime":            "latest"
 	}
 }

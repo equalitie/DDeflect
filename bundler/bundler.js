@@ -32,17 +32,14 @@ process.on('uncaughtException', function(err) {
  */
 
 var Bundler = express()
-var Debundler = ''
+	.use(require('compression')())
+	.use(require('body-parser')())
+	.use(require('method-override')())
 
+var Debundler = ''
 fs.readFile('debundler.html', function(err, data) {
 	if (err) { throw err }
 	Debundler = data.toString()
-})
-
-Bundler.configure(function() {
-	Bundler.use(express.compress())
-	Bundler.use(express.bodyParser())
-	Bundler.use(express.methodOverride())
 })
 
 Bundler.log = function(message) {
@@ -65,7 +62,7 @@ http.createServer(Bundler).listen(3000, '127.0.0.1', function() {
  * url: The URL of the webpage to bundle.
  */
 
-Bundler.get('/', function(req, res) {
+Bundler.route('/').get(function(req, res) {
 	Bundler.beginProcess(req, res)
 })
 
@@ -133,8 +130,10 @@ Bundler.mainProcess = function(req, res, process) {
 	Bundler.log('Initializing bundling for ' + req.query.url.green)
 	process.page.set('onResourceRequested', function(request, networkRequest) {
 		if (!process.pageLoadedCutoff) {
-			if (request.url.match('^http')
-			&& request.url.match(process.resourceDomain)) {
+			if (
+				request.url.match('^http') &&
+				request.url.match(process.resourceDomain)
+			) {
 				process.resources[process.resourceNumber] = {
 					url: request.url
 				}
@@ -164,11 +163,16 @@ Bundler.mainProcess = function(req, res, process) {
 					Bundler.log('Encrypting bundle: '.bold + process.resources[0].url.green)
 					var key     = CryptoJS.enc.Hex.parse('0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a')
 					var iVector = CryptoJS.enc.Hex.parse('94949494949494949494949494949494')
+					var HMACKey = CryptoJS.enc.Hex.parse('f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7')
 					var encrypted = CryptoJS.AES.encrypt(
 						process.resources[0].content, key, {iv: iVector}
 					).toString()
+					var HMAC = CryptoJS.HmacSHA256(encrypted, HMACKey).toString()
+					Debundler = Debundler
+						.replace('{{encrypted}}', encrypted)
+						.replace('{{hmac}}', HMAC)
 					Bundler.log('Serving bundle: '.bold + process.resources[0].url.green)
-					res.end(Debundler.replace('OTOxRiVdfw1F6vCQZCV1Zs1JrvZKkC2m', encrypted))
+					res.end(Debundler)
 				}
 
 			})
