@@ -4,6 +4,7 @@
   sudo: True
   vars_files:
     - clients.yml
+    - deflect.yml
   vars:
     locale: en_US.UTF-8
     timezone: UTC
@@ -19,6 +20,7 @@
     - trafficserver
     #- botnetdbp
   vars_files:
+    - deflect.yml
     - clients.yml
 
 - hosts: controller
@@ -26,4 +28,5 @@
   roles:
     - dns
   vars_files:
+    - deflect.yml
     - clients.yml
