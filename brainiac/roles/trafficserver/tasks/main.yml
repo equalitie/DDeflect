@@ -5,6 +5,10 @@
     - trafficserver
   tags: ats
 
+- name: records config
+  template: src=records.config.j2 dest=/usr/local/trafficserver/records.config owner=root group=root
+  tags: ats
+
 - name: remap config
   template: src=remap.conf.j2 dest=/usr/local/trafficserver/remap.conf owner=root group=root
   notify:
