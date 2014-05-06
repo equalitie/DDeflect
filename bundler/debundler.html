@@ -31,18 +31,39 @@
 		this._hasher;a=e.finalize(a);e.reset();return e.finalize(this._oKey.clone().concat(a))}})})();
 	</script>
 	<script type="application/javascript">
-		window.onload = function() {
+		var constantTimeCompare = function(str1, str2) {
+			if (str1.length !== str2.length) {
+				return false
+			}
+			var result = 0
+			for (var i = 0; i < str1.length; i++) {
+				result |= str1[i].charCodeAt(0) ^ str2[i].charCodeAt(0)
+			}
+			return result === 0
+		}
+
+		var decryptBundle = function() {
 			var key       = CryptoJS.enc.Hex.parse('0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a')
 			var iVector   = CryptoJS.enc.Hex.parse('94949494949494949494949494949494')
-			var encrypted = document.getElementById('c').innerHTML
-			var decrypted = CryptoJS.AES.decrypt(encrypted, key, {iv: iVector})
-			document.write(decrypted.toString(CryptoJS.enc.Utf8))
-			document.close()
+			var HMACKey   = CryptoJS.enc.Hex.parse('f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7')
+			var encrypted = document.getElementById('encrypted').innerText
+			var HMAC      = document.getElementById('hmac').innerText
+			var ourHMAC   = CryptoJS.HmacSHA256(encrypted, HMACKey).toString()
+			if (constantTimeCompare(HMAC, ourHMAC)) {
+				var decrypted = CryptoJS.AES.decrypt(encrypted, key, {iv: iVector})
+				document.write(decrypted.toString(CryptoJS.enc.Utf8))
+				document.close()
+			}
+			else {
+				// TODO say we failed
+				alert('Integrity check failed.')
+			}
 		}
 	</script>
 </head>
-<body>
-        <noscript>JavaScript is required to display the contents of this page!</noscript>
-	<div id="c" style="display:none">OTOxRiVdfw1F6vCQZCV1Zs1JrvZKkC2m</div>
+<body onload="decryptBundle()">
+	<noscript>JavaScript is required to display the contents of this page!</noscript>
+	<div id="encrypted" style="display:none">{{encrypted}}</div>
+	<div id="hmac" style="display:none">{{hmac}}</div>
 </body>
 </html>
