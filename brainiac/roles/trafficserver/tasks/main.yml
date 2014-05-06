@@ -5,8 +5,15 @@
     - trafficserver
   tags: ats
 
+- name: set up ATS service
+  service: name=trafficserver state=started enabled=yes
+
 - name: records config
   template: src=records.config.j2 dest=/usr/local/trafficserver/records.config owner=root group=root
+  tags: ats
+
+- name: logging config
+  template: src=logs_xml.config.j2 dest=/usr/local/trafficserver/logs_xml.config owner=root group=root
   tags: ats
 
 - name: remap config
