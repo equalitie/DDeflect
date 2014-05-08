@@ -37,16 +37,19 @@ var Bundler = express()
 	.use(require('method-override')())
 
 var Debundler = ''
+var debundlerState = ''
 fs.readFile('debundler.html', function(err, data) {
 	if (err) { throw err }
-	Debundler = data.toString()
+	debundlerState = data.toString()
 })
+
+Debundler = debundlerState
 
 Bundler.log = function(message) {
 	console.log('[BUNDLER]'.red.bold, message)
 }
 
-http.createServer(Bundler).listen(3000, '127.0.0.1', function() {
+http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
 	console.log('____  _   _ _   _ ____  _     _____ ____  '.rainbow.bold)
 	console.log('| __ )| | | | \\ | |  _ \\| |   | ____|  _ \\ '.rainbow.bold)
 	console.log('|  _ \\| | | |  \\| | | | | |   |  _| | |_) |'.rainbow.bold)
@@ -127,6 +130,7 @@ Bundler.mainProcess = function(req, res, process) {
 	process.resources = {}
 	process.resourceNumber = 0
 	process.pageLoadedCutoff = false
+        Debundler = debundlerState
 	Bundler.log('Initializing bundling for ' + req.query.url.green)
 	process.page.set('onResourceRequested', function(request, networkRequest) {
 		if (!process.pageLoadedCutoff) {
