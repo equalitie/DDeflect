@@ -64,15 +64,24 @@
 		var getBundle = function() {
 			var xhr = new XMLHttpRequest()
 			xhr.open('GET', '{{v_edge}}/~nosmo/test.txt', true)
+                        var bundle;
+                        var hmac;
 			xhr.onreadystatechange = function() {
 				if (this.readyState !== 4) return
 				if (this.status !== 200) return
-				// TODO pingback and say we failed to load
-				var returnedContent = this.responseText
-				// Hugh, you also need to find a way to communicate the HMAC now.
-				decryptBundle(returnedContent)
+				bundle = this.responseText
 			}
 			xhr.send()
+			xhr.open('GET', '{{v_edge}}/~nosmo/test.txt.hmac', true)
+			xhr.onreadystatechange = function() {
+				if (this.readyState !== 4) return
+				if (this.status !== 200) return
+				hmac = this.responseText
+			}
+			xhr.send()
+
+                                            alert(hmac)
+                        decryptBundle(bundle, hmac)
 		}
 	</script>
 </head>
