@@ -1,13 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import flask
 import jinja2
+import requests
+
+import collections
+import time
+import hashlib
 import os
 import threading
-import flask
+import logging
 
 REFRESH_PERIOD=18000
 PORT=80
+
+#BUNDLER="http://localhost:3000/?url="
+BUNDLER="http://wheezy1.local:3000/?url="
+SALT="feise4iephohng4ahteequu3paKoaQuaeviashim"
 
 class DebundlerMaker(object):
 
@@ -37,16 +47,78 @@ class DebundlerServer(flask.Flask):
         super(DebundlerServer, self).__init__("DebundlerServer")
         self.debundler_maker = debundler_maker
         self.vedge_manager = vedge_manager
+        #TODO storing bundles here is duuuuumb but let's do it for now.
+        self.bundles = collections.defaultdict(dict)
 
-        self.route("/")(self.rootRoute)
+        #wildcard routing
+        self.route('/', defaults={'path': ''})(self.rootRoute)
+        self.route('/<path:path>')(self.rootRoute)
 
-    def rootRoute(self):
+    def cleanBundles(self, stale_time=600):
+        #TODO replace this with redis and expiry. this is largely
+        #bullshit.
+        delete_list = []
+
+        for url, url_data in self.bundles.iteritems():
+            if (url_data["fetched"] + stale_time) < time.time():
+                delete_list.append(url)
+
+        for url in delete_list:
+            del(self.bundles[url])
+        return len(delete_list)
+
+    def genBundle(self, host, path):
+        bundle_s = requests.Session()
+        print "Path is %s" % path
+        if not path:
+            path = "/"
+        if not path.startswith("/"):
+            raise Exception("Receieved invalid path for request to host %s: %s" % (host,path))
+
+        url = "%s%s" % (host, path)
+
+        bundle_s.headers.update({"Host": host})
+        bundle_get = bundle_s.get(BUNDLER + "%s" % url)
+
+        if bundle_get.status_code > 400:
+            logging.error("Failed to get bundle for %s: %s (%s)", url,
+                          bundle_get.text, bundle_get.status_code)
+
+        bundle_content = bundle_get.text
+        bundle_signature = hashlib.sha512( SALT + bundle_content).hexdigest()
+        #self.bundles[bundle_signature] = bundle_content
+        #TODO keep this in redis
+        self.bundles[url] = {
+            "bundle": bundle_content,
+            "fetched": time.time(),
+            "hash": bundle_signature
+        }
+
+        return True
+
+    def rootRoute(self, path):
         v_edge = self.vedge_manager.getVedge()
         key = self.debundler_maker.key
         iv = self.debundler_maker.iv
 
+        if not path:
+            path = "/"
+
+        #DEBUG given that we're doing a dumb example here, let's just
+        #use the first bundle we have
+        request_host = flask.request.headers.get('Host')
+        url = "%s%s" % (request_host, path)
+        print "Request is for %s" % url
+
+        if url not in self.bundles:
+            self.genBundle(request_host, path)
+
+        if url not in self.bundles:
+            raise Exception("Site not in bundles after bundling was requested!!")
+
         render_result = flask.render_template("debundler_template.html.j2", key=unicode(key),
-                                             iv=unicode(iv), v_edge=unicode(v_edge))
+                                             iv=unicode(iv), v_edge=unicode(v_edge),
+                                              bundle_signature=self.bundles[url]["hash"])
 
         resp = flask.Response(render_result, status=200)
         return resp
@@ -56,7 +128,7 @@ def main():
     d = DebundlerMaker()
     v = VedgeManager()
     s = DebundlerServer(8000, d, v)
-    s.run(debug=True)
+    s.run(debug=True, threaded=True)
 
 if __name__ == "__main__":
     main()
