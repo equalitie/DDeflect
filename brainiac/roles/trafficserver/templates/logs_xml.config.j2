@@ -382,7 +382,7 @@ simply create a <LogObject> that uses this format.
 </LogFormat>
 
 {% for domain, attributes in remap.iteritems() %}
-{% if attrbutes["disable_logging"] %}
+{% if attributes["disable_logging"] %}
 <LogFilter>
   <Name = "reject_{{domain}}"/>
   <Condition = "{Host}cqh MATCH {{domain}}"/>
@@ -401,7 +401,7 @@ simply create a <LogObject> that uses this format.
    <Format = "deflect_log"/>
    <Filename = "delete"/>
 {% for domain, attributes in remap.iteritems() %}
-{% if attrbutes["disable_logging"] %}
+{% if attributes["disable_logging"] %}
    <Filters ="accept_{{domain}}"/>
 {% endif %}
 {% endfor %}
@@ -415,7 +415,7 @@ simply create a <LogObject> that uses this format.
    <Format = "deflect_log"/>
    <Filename = "deflect"/>
 {% for domain, attributes in remap.iteritems() %}
-{% if attrbutes["disable_logging"] %}
+{% if attributes["disable_logging"] %}
    <Filters ="reject_{{domain}}"/>
 {% endif %}
 {% endfor %}
