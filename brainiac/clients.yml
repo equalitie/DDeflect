@@ -3,6 +3,7 @@ dnets:
 
 remap: {
     "mysite.com": {
+      "disable_logging": True,
       "network": "staging.deflect.ca",
       "hidden": "uas98u9ajaja",
       "https": True,
@@ -13,6 +14,7 @@ remap: {
       }
     },
     "myothersite.com": {
+      "disable_logging": False,
       "network": "staging.deflect.ca",
       "hidden": "kauih98u9ajaja",
       "https": False,
