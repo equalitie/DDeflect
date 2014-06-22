@@ -1,9 +1,9 @@
 ---
-#- name: Install bind
-#  apt: pkg={{item}} state=installed
-#  with_items:
-#    - bind
-#  tags: dns
+- name: Install bind
+  apt: pkg={{item}} state=installed
+  with_items:
+    - bind9
+  tags: dns
 
 #NOTE: inside the template we access "item.key" in order to access the
 #domain we're working with. it's odd but it works.
