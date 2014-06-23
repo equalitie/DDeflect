@@ -1,0 +1,32 @@
+- name: Set up sudoers
+  copy: src=sudoers dest=/etc/sudoers
+
+- name: Create traffiserver group
+  group: name=trafserv state=present gid={{ trafserv_gid }}
+
+- name: Create trafficserver user
+  user: name=trafserv state=present groups=trafserv uid={{ trafserv_id }} home={{ trafserv_home }}
+
+- name: Make trafficserver SSH directory
+  file: path={{trafserv_home}}/.ssh state=directory owner=travserv group=trafserv
+
+- name: Install trafficserver SSH key
+  authorized_key: user=trafserv
+                  key="{{ lookup('file', 'travserv_id_rsa.pub') }}"
+                  path='{{trafserv_home}}/.ssh/authorized_keys'
+                  manage_dir=no
+
+- name: Make root SSH directory
+  file: path=/root/.ssh state=directory owner=root group=root
+
+- name: Install root SSH key
+  authorized_key: user=root
+                  key="{{ lookup('file', 'root_id_rsa.pub') }}"
+                  path='/root/.ssh/authorized_keys'
+                  manage_dir=no
+
+- name: Set hostname
+  hostname: name={{ inventory_hostname }}
+
+- name: Ensure the Deflect apt repository is added
+  apt_repository: state=present repo='deb http://brains.deflect.ca/repo/ wheezy main'
