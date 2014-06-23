@@ -76,9 +76,11 @@ class DebundlerServer(flask.Flask):
             raise Exception("Receieved invalid path for request to host %s: %s" % (host,path))
 
         url = "%s%s" % (host, path)
+        #TODO add to a config file per-site
+        url_scheme = "http://"
 
         bundle_s.headers.update({"Host": host})
-        bundle_get = bundle_s.get(BUNDLER + "%s" % url)
+        bundle_get = bundle_s.get(BUNDLER + "%s%s" % (url_scheme, url))
 
         if bundle_get.status_code > 400:
             logging.error("Failed to get bundle for %s: %s (%s)", url,
@@ -86,15 +88,16 @@ class DebundlerServer(flask.Flask):
 
         bundle_content = bundle_get.text
         bundle_signature = hashlib.sha512( SALT + bundle_content).hexdigest()
-        #self.bundles[bundle_signature] = bundle_content
+
         #TODO keep this in redis
-        self.bundles[url] = {
+        self.bundles[bundle_signature] = {
+            "host": host,
+            "path": path,
             "bundle": bundle_content,
-            "fetched": time.time(),
-            "hash": bundle_signature
+            "fetched": time.time()
         }
 
-        return True
+        return bundle_signature
 
     def rootRoute(self, path):
         v_edge = self.vedge_manager.getVedge()
@@ -110,17 +113,27 @@ class DebundlerServer(flask.Flask):
         url = "%s%s" % (request_host, path)
         print "Request is for %s" % url
 
-        if url not in self.bundles:
-            self.genBundle(request_host, path)
+        #TODO set cookies here
+        #flask.request.cookies.get()
 
-        if url not in self.bundles:
+        bundlehash = None
+        for storedbundlehash, data in self.bundles.iteritems():
+            if data["host"] == host and data["path"] == path:
+                bundlehash = storedbundlehash
+                break
+
+        if not bundlehash:
+            bundlehash = self.genBundle(request_host, path)
+
+        if bundlehash not in self.bundles:
             raise Exception("Site not in bundles after bundling was requested!!")
 
         render_result = flask.render_template("debundler_template.html.j2", key=unicode(key),
                                              iv=unicode(iv), v_edge=unicode(v_edge),
-                                              bundle_signature=self.bundles[url]["hash"])
+                                              bundle_signature=bundlehash)
 
         resp = flask.Response(render_result, status=200)
+        #response.set_cookie(
         return resp
 
 def main():
