@@ -63,7 +63,7 @@
 
 		var getBundle = function() {
 			var xhr = new XMLHttpRequest()
-			xhr.open('GET', '{{v_edge}}/{{bundle_signature}}', true)
+			xhr.open('GET', '{{v_edge}}/_bundle/{{bundle_signature}}', true)
 			xhr.onreadystatechange = function() {
 				if (this.readyState !== 4) return
 				if (this.status !== 200) return

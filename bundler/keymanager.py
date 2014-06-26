@@ -52,6 +52,8 @@ class DebundlerServer(flask.Flask):
 
         #wildcard routing
         self.route('/', defaults={'path': ''})(self.rootRoute)
+        self.route("/_bundle/")(self.serveBundle)
+        #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
 
     def cleanBundles(self, stale_time=600):
@@ -99,7 +101,23 @@ class DebundlerServer(flask.Flask):
 
         return bundle_signature
 
+    def serveBundle(self, bundlehash):
+        logging.info("Got a request for bundle with hash of %s", bundlehash)
+        if bundlehash not in self.bundles:
+            flask.abort(404)
+
+        bundle = self.bundles[bundlehash]["bundle"]
+        return bundle
+
     def rootRoute(self, path):
+
+        if path.startswith("_bundle"):
+            print "Path starts with _bundle"
+            if "/" not in path:
+                logging.error("got request that started with _bundle but had no slash!")
+                flask.abort(503)
+            return self.serveBundle(path.split("/")[1])
+
         v_edge = self.vedge_manager.getVedge()
         key = self.debundler_maker.key
         iv = self.debundler_maker.iv
@@ -118,7 +136,7 @@ class DebundlerServer(flask.Flask):
 
         bundlehash = None
         for storedbundlehash, data in self.bundles.iteritems():
-            if data["host"] == host and data["path"] == path:
+            if data["host"] == request_host and data["path"] == path:
                 bundlehash = storedbundlehash
                 break
 
