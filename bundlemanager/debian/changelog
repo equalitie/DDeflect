@@ -1,0 +1,5 @@
+bundlemanager (0.0.1) unstable; urgency=low
+
+	* First version of bundle tracking+bundle management system for Distributed Deflect.
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie> Tue, 08 Jul 2014 15:41:00 +0000

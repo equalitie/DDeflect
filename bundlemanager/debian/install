@@ -1,0 +1,3 @@
+conf/bundlemanager.yaml /etc/
+src/bundlemanager.py /usr/bin
+lib/templates /usr/share/bundlemanager/
