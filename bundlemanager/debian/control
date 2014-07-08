@@ -3,7 +3,7 @@ Section: python
 Priority: optional
 Maintainer: Distributed Deflect Packaging <sysops@equalit.ie>
 Build-Depends:
-        debhelper
+        debhelper,
         python-support
 Standards-Version: 3.9.1
 
@@ -13,6 +13,5 @@ Depends:
          python-requests,
          python-flask,
          python-jinja2
-
 Description: Manages creation (via the Bundler service), storage and
  returning of bundle objects for the Distributed Deflect project.
