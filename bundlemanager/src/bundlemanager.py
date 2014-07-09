@@ -51,6 +51,8 @@ class DebundlerServer(flask.Flask):
         self.bundler_url = bundler_url
         self.salt = salt
 
+        self.redis = redis.Redis()
+
         #wildcard routing
         self.route('/', defaults={'path': ''})(self.rootRoute)
         self.route("/_bundle/")(self.serveBundle)
@@ -92,23 +94,30 @@ class DebundlerServer(flask.Flask):
         bundle_content = bundle_get.text
         bundle_signature = hashlib.sha512( self.salt + bundle_content).hexdigest()
 
-        #TODO keep this in redis
-        self.bundles[bundle_signature] = {
+        #TODO set TTL
+        self.redis.sadd("bundles", bundle_signature)
+        self.redis.set("%s", json.dumps({
             "host": host,
             "path": path,
             "bundle": bundle_content,
             "fetched": time.time()
-        }
+        }))
 
         return bundle_signature
 
     def serveBundle(self, bundlehash):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
-        if bundlehash not in self.bundles:
+        #if bundlehash not in self.bundles:
+        if not self.redis.sismember("bundles", bundlehash):
             flask.abort(404)
 
-        bundle = self.bundles[bundlehash]["bundle"]
-        return bundle
+        bundle_get = json.loads(self.redis.get(bundlehash))
+        if "bundle" not in bundle_get:
+            logging.error("Failed to get a valid bundle from bundle key %s", bundlehash)
+            flask.abort(503)
+        else:
+            bundle = bundle_get["bundle"]
+            return bundle
 
     def rootRoute(self, path):
 

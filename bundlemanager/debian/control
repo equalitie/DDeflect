@@ -13,6 +13,7 @@ Depends:
          python-requests,
          python-flask,
          python-yaml,
+         python-redis,
          python-jinja2
 Description: Manages creation (via the Bundler service), storage and
  returning of bundle objects for the Distributed Deflect project.
