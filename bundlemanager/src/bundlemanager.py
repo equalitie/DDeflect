@@ -4,7 +4,9 @@
 import flask
 import jinja2
 import requests
+import yaml
 
+import argparse
 import collections
 import time
 import hashlib
@@ -12,18 +14,13 @@ import os
 import threading
 import logging
 
-REFRESH_PERIOD=18000
-PORT=80
-
-#BUNDLER="http://localhost:3000/?url="
-BUNDLER="http://wheezy1.local:3000/?url="
-SALT="feise4iephohng4ahteequu3paKoaQuaeviashim"
-
 class DebundlerMaker(object):
 
-    def __init__(self):
+    def __init__(self, refresh_period):
         self.genKeys()
-        self.refresher = threading.Timer(REFRESH_PERIOD, self.genKeys())
+        self.refresh_period = refresh_period
+        self.refresher = threading.Timer(self.refresh_period,
+                                         self.genKeys())
 
     def genKeys(self):
         #TODO add expiry mechanism
@@ -34,21 +31,25 @@ class DebundlerMaker(object):
         self.iv = ivbytes.encode("hex")
 
 class VedgeManager(object):
-    #This is one massive TODO
-    def __init__(self):
-        pass
+    def __init__(self, vedge_data):
+        self.vedge_data = vedge_data
 
     def getVedge(self):
-        return "http://nosmo.me"
+        #TODO read the vedge_data to figure out when we should serve
+        #via a particular edge etc etc
+        return self.vedge_data.keys()
 
 class DebundlerServer(flask.Flask):
 
-    def __init__(self, port, debundler_maker, vedge_manager):
+    def __init__(self, bundler_url, salt, debundler_maker, vedge_manager):
         super(DebundlerServer, self).__init__("DebundlerServer")
         self.debundler_maker = debundler_maker
         self.vedge_manager = vedge_manager
         #TODO storing bundles here is duuuuumb but let's do it for now.
         self.bundles = collections.defaultdict(dict)
+
+        self.bundler_url = bundler_url
+        self.salt = salt
 
         #wildcard routing
         self.route('/', defaults={'path': ''})(self.rootRoute)
@@ -82,14 +83,14 @@ class DebundlerServer(flask.Flask):
         url_scheme = "http://"
 
         bundle_s.headers.update({"Host": host})
-        bundle_get = bundle_s.get(BUNDLER + "%s%s" % (url_scheme, url))
+        bundle_get = bundle_s.get(self.bundler_url + "%s%s" % (url_scheme, url))
 
         if bundle_get.status_code > 400:
             logging.error("Failed to get bundle for %s: %s (%s)", url,
                           bundle_get.text, bundle_get.status_code)
 
         bundle_content = bundle_get.text
-        bundle_signature = hashlib.sha512( SALT + bundle_content).hexdigest()
+        bundle_signature = hashlib.sha512( self.salt + bundle_content).hexdigest()
 
         #TODO keep this in redis
         self.bundles[bundle_signature] = {
@@ -154,12 +155,30 @@ class DebundlerServer(flask.Flask):
         #response.set_cookie(
         return resp
 
-def main():
+def main(config):
 
-    d = DebundlerMaker()
-    v = VedgeManager()
-    s = DebundlerServer(8000, d, v)
-    s.run(debug=True, threaded=True)
+    port = config["general"]["port"]
+    url_salt = config["general"]["url_salt"]
+
+    bundler_url = config["general"]["bundler_path"]
+    refresh_period = config["general"]["refresh_period"]
+
+    vedge_data = config["v_edges"]
+
+    d = DebundlerMaker(refresh_period)
+    v = VedgeManager(vedge_data)
+    s = DebundlerServer(bundler_url, url_salt, d, v)
+    s.run(debug=True, threaded=True, port=port)
 
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser(description = 'Manage DDeflect bundle serving and retreival.')
+    parser.add_argument('-c', dest = 'config_path', action = 'store',
+                        default = '/etc/bundlemanager.yaml',
+                        help = 'Path to config file.')
+    args = parser.parse_args()
+
+    logging.info("Loading config from %s", args.config_path)
+    config = yaml.load(open(args.config_path).read())
+
+    main(config)
