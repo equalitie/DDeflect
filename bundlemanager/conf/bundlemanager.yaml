@@ -1,0 +1,12 @@
+---
+general:
+  bundler_path: http://wheezy1.local:3000/?url=
+  url_salt: feise4iephohng4ahteequu3paKoaQuaeviashim
+  port: 8000
+  refresh_period: 1800
+
+v_edges:
+  nosmo.me:
+    availability:
+      start: ""
+      end: ""
