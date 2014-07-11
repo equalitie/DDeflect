@@ -12,5 +12,5 @@ Depends:
         nodejs,
         phantomjs
 Description: Creates encrypted bundles of web content in order for
-content to be served via volunteer edges taking part in the
-Distributed Deflect project.
+ content to be served via volunteer edges taking part in the
+ Distributed Deflect project.
