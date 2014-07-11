@@ -1,0 +1,15 @@
+---
+general:
+  bundler_path: http://127.0.0.1:{{ bundler_port }}/?url=
+  url_salt: {{ bundlehash_salt }}
+  port: 8000
+  refresh_period: 1800
+  template_directory: /usr/share/bundlemanager/templates/
+
+v_edges:
+{% for vedge, attributes in vedges.iteritems() %}
+  {{vedge}}:{{attributes["port"]}}:
+    availability:
+      start: {{attributes["availability"]["start"]}}
+      end: {{attributes["availability"]["end"]}}
+{% endfor %}

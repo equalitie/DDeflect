@@ -1,0 +1,2 @@
+- name: reload bundlemanager
+  command: /etc/init.d/bundlemanager reload
