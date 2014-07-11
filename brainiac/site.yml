@@ -1,7 +1,7 @@
 ---
 
 - hosts: all
-  sudo: True
+  user: root
   vars_files:
     - clients.yml
     - deflect.yml
@@ -11,13 +11,15 @@
   roles:
     - common
 
-- hosts: staging
-  sudo: True
+- hosts: distributed.deflect.ca
+  user: root
   vars:
-    network: staging
-    originstring: staging.deflect.ca
+    network: distributed.deflect.ca
+    originstring: distributed.deflect.ca
   roles:
     - trafficserver
+    - edgecommon
+    - bundlemanager
     #- botnetdbp
   vars_files:
     - deflect.yml
