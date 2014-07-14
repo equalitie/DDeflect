@@ -45,7 +45,7 @@ CONFIG proxy.config.accept_threads INT 1
 ##############################################################################
 CONFIG proxy.config.admin.admin_user STRING admin
 CONFIG proxy.config.admin.number_config_bak INT 3
-CONFIG proxy.config.admin.user_id STRING trafserv
+CONFIG proxy.config.admin.user_id STRING trafficserver
 ##############################################################################
 #
 # Process Manager
@@ -434,7 +434,7 @@ CONFIG proxy.config.log.max_space_mb_for_logs INT 25000
 CONFIG proxy.config.log.max_space_mb_for_orphan_logs INT 25
 CONFIG proxy.config.log.max_space_mb_headroom INT 1000
 CONFIG proxy.config.log.hostname STRING localhost
-CONFIG proxy.config.log.logfile_dir STRING logs
+CONFIG proxy.config.log.logfile_dir STRING /var/log/trafficserver
 CONFIG proxy.config.log.logfile_perm STRING rw-r--r--
 CONFIG proxy.config.log.custom_logs_enabled INT 1
 CONFIG proxy.config.log.squid_log_enabled INT 0
