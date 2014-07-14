@@ -9,15 +9,15 @@
   service: name=trafficserver state=started enabled=yes
 
 - name: records config
-  template: src=records.config.j2 dest=/usr/local/trafficserver/records.config owner=root group=root
+  template: src=records.config.j2 dest=/etc/trafficserver/records.config owner=root group=root
   tags: ats
 
 - name: logging config
-  template: src=logs_xml.config.j2 dest=/usr/local/trafficserver/logs_xml.config owner=root group=root
+  template: src=logs_xml.config.j2 dest=/etc/trafficserver/logs_xml.config owner=root group=root
   tags: ats
 
 - name: remap config
-  template: src=remap.conf.j2 dest=/usr/local/trafficserver/remap.conf owner=root group=root
+  template: src=remap.conf.j2 dest=/etc/trafficserver/remap.config owner=root group=root
   notify:
     - restart ats
   tags: ats
