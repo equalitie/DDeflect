@@ -1,0 +1,9 @@
+---
+
+- name: Install banjax.so
+  copy src=banjax.so dest=/usr/local/trafficserver/deflect/modules/
+
+- name: Activate banjax
+  copy src=plugin.config dest=/usr/local/trafficserver/conf/
+
+#TODO: regex template
