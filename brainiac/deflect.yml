@@ -1,6 +1,9 @@
 ---
+# Deprecated:
 trafserv_id: 99
 trafserv_gid: 99
-trafserv_home: /usr/local/trafficserver
+
+
+trafserv_home: /var/run/trafficserver/
 bundlehash_salt: feise4iephohng4ahteequu3paKoaQuaeviashim
 bundler_port: 3000
