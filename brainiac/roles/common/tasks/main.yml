@@ -1,5 +1,8 @@
 ---
 
+- name: Update Apt cache information
+  apt: update_cache=yes
+
 - name: Install basic package requirements
   apt: pkg={{item}} state=installed
   with_items:
@@ -17,7 +20,7 @@
   service: name=ntp state=running enabled=yes
 
 - name: set locale to {{ locale }}
-  command: /usr/sbin/update-locale LANG={{ locale }} LC_ALL={{ locale }}
+  locale_gen: name={{ locale }} state=present
 
 - name: set /etc/localtime to {{ timezone }}
   command: /bin/cp /usr/share/zoneinfo/{{ timezone }} /etc/localtime
