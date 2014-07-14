@@ -5,6 +5,9 @@
     - trafficserver
   tags: ats
 
+- name: enable ATS init script
+  file: src=trafficserver.default dest=/etc/default/trafficserver
+
 - name: set up ATS service
   service: name=trafficserver state=started enabled=yes
 
