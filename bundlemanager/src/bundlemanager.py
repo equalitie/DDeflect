@@ -149,11 +149,6 @@ class DebundlerServer(flask.Flask):
         #TODO set cookies here
         #flask.request.cookies.get()
 
-        #for storedbundlehash, data in self.bundles.iteritems():
-        #    if data["host"] == request_host and data["path"] == path:
-        ##        bundlehash = storedbundlehash
-        #        break
-
         #REALLY BAD IDEA FIX ME THIS MAKES REDIS POINTLESS DERPDERP
         bundlehash = None
         for storedbundlehash in self.redis.smembers("bundles"):
@@ -194,10 +189,17 @@ def main(config):
     s = DebundlerServer(bundler_url, url_salt, refresh_period,
                         d, v, template_directory=template_directory)
     logging.info("Starting to serve on port %d", port)
-    print port
     s.run(debug=True, threaded=True, port=port)
 
 if __name__ == "__main__":
+
+    #TODO here:
+    # drop privileges,
+    # set up proper logging
+    #(log to stdout if we're running interactive, otherwise log to syslog)
+    # create a PID file
+    # double fork
+    # add signal handling (via signal.signal)
 
     parser = argparse.ArgumentParser(description = 'Manage DDeflect bundle serving and retreival.')
     parser.add_argument('-c', dest = 'config_path', action = 'store',
