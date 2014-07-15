@@ -1,9 +1,17 @@
 ---
+- name: Update Apt cache information
+  apt: update_cache=yes
+
 - name: Install bind
   apt: pkg={{item}} state=installed
   with_items:
     - bind9
   tags: dns
+
+- name: bind config
+  template: src=named.conf.options.j2 dest=/etc/bind/named.conf.options
+  notify:
+    - reload bind
 
 #NOTE: inside the template we access "item.key" in order to access the
 #domain we're working with. it's odd but it works.
