@@ -292,7 +292,6 @@ if __name__ == "__main__":
     # double fork
     # add signal handling (via signal.signal)
     
-    dropPrivileges()
 
     parser = argparse.ArgumentParser(description = 'Manage DDeflect bundle serving and retreival.')
     parser.add_argument('command', action = 'store',
@@ -305,7 +304,12 @@ if __name__ == "__main__":
 
     logging.info("Loading config from %s", args.config_path)
     config = yaml.load(open(args.config_path).read())
-    daemon = bundleManagerDaemon('/tmp/bundlemanager.pid', config)
+
+    dropPrivileges(config['general']['uid_name'],
+                    config['general']['gid_name'])
+
+    pidfile = config['pidfile']
+    daemon = bundleManagerDaemon(pidfile, config)
 
     def handleSignal(signum, frame):
         daemon.stop()
