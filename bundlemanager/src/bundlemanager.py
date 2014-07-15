@@ -304,11 +304,10 @@ if __name__ == "__main__":
 
     logging.info("Loading config from %s", args.config_path)
     config = yaml.load(open(args.config_path).read())
+    dropPrivileges(config["general"]["uid_name"],
+                    config["general"]["gid_name"])
 
-    dropPrivileges(config['general']['uid_name'],
-                    config['general']['gid_name'])
-
-    pidfile = config['pidfile']
+    pidfile = config['general']['pidfile']
     daemon = bundleManagerDaemon(pidfile, config)
 
     def handleSignal(signum, frame):

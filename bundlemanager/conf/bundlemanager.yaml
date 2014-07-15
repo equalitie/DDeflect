@@ -6,8 +6,8 @@ general:
   refresh_period: 1800
   template_directory: ../lib/templates/
   pidfile: /tmp/bundlemanager.pid
-  uid_name: nobody
-  gid_name: no_group
+  uid_name: bill
+  gid_name: bill
 v_edges:
   nosmo.me:
     availability:
