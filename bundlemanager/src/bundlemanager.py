@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+import ipdb
 import flask
 import jinja2
 import requests
@@ -12,9 +12,11 @@ import json
 import collections
 import time
 import hashlib
-import os
+import sys, os, pwd, grp
+import signal
 import threading
 import logging
+import atexit
 
 class DebundlerMaker(object):
 
@@ -173,23 +175,115 @@ class DebundlerServer(flask.Flask):
         #response.set_cookie(
         return resp
 
-def main(config):
+class bundleManagerDaemon():
+    def __init__(self, pidfile, config, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
+        self.stdin = stdin
+        self.stdout = stdout
+        self.stderr = stderr
+        self.pidfile = pidfile
+ 
+        self.config = config
 
-    port = config["general"]["port"]
-    url_salt = config["general"]["url_salt"]
+    def run(self):
 
-    bundler_url = config["general"]["bundler_path"]
-    refresh_period = config["general"]["refresh_period"]
-    template_directory = config["general"]["template_directory"]
+        port = self.config["general"]["port"]
+        url_salt = self.config["general"]["url_salt"]
 
-    vedge_data = config["v_edges"]
+        bundler_url = self.config["general"]["bundler_path"]
+        refresh_period = self.config["general"]["refresh_period"]
+        template_directory = self.config["general"]["template_directory"]
 
-    d = DebundlerMaker(refresh_period)
-    v = VedgeManager(vedge_data)
-    s = DebundlerServer(bundler_url, url_salt, refresh_period,
-                        d, v, template_directory=template_directory)
-    logging.info("Starting to serve on port %d", port)
-    s.run(debug=True, threaded=True, port=port)
+        vedge_data = self.config["v_edges"]
+
+        d = DebundlerMaker(refresh_period)
+        v = VedgeManager(vedge_data)
+        s = DebundlerServer(bundler_url, url_salt, refresh_period,
+                            d, v, template_directory=template_directory)
+        logging.info("Starting to serve on port %d", port)
+        s.run(debug=True, threaded=True, port=port)
+
+    def delpid(self):
+        if os.path.exists(self.pidfile):
+            os.remove(self.pidfile)
+
+    def daemonise(self):
+        try:
+            pid = os.fork()
+            if pid > 0:
+                raise SystemExit("Couldn't fork!")
+                sys.exit(0)
+        except OSError, e:
+            logging.error("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
+            sys.exit(1)
+        # decouple from parent environment
+        try:
+            pid = os.fork()
+            if pid > 0:
+                raise SystemExit("Couldn't fork!")
+                sys.exit(0)
+        except OSError, e:
+            sys.stderr.write("fork #2 failed: %d (%s)\n" % (e.errno,
+            e.strerror))
+            sys.exit(1)
+        pid = str(os.getpid())
+        file(self.pidfile, 'w+').write("%s\n" % pid)
+
+    def getpid(self):
+        try:
+            pf = file(self.pidfile, 'r')
+            pid = int(pf.read().strip())
+            pf.close()
+        except IOError:
+            pid = None
+        return pid
+
+    def start(self):
+        if self.getpid():
+            logging.error(self.getpid())
+            logging.error("Bundlemanager already running\n")
+            #sys.exit(1)
+        self.daemonise()
+        self.run()
+
+    def stop(self):
+        pid = self.getpid()
+        if not pid:
+            logging.error("Bundlemanager not running\n")
+            sys.exit(1)
+        try:
+            while 1:
+                os.kill(pid, signal.SIGTERM)
+                time.sleep(0.1)
+        except OSError, e:
+            e = str(e)
+            if e.find("No such process") > 0:
+                self.delpid()
+            else:
+                logging.error(e)
+                sys.exit(1)
+
+    def restart(self):
+        self.stop()
+        self.start()
+
+def dropPrivileges(uid_name='nobody', gid_name='no_group'):
+    if os.getuid() != 0:
+        return
+
+    running_uid = pwd.getpwnam(uid_name).pw_uid
+    running_gid = grp.getgrnam(gid_name).gr_gid
+
+    os.setgroups([])
+    try:
+        os.setgid(running_gid)
+    except OSError, e:
+        logging.error('Could net set effective group id: %s' % e)
+    try:
+        os.setuid(running_uid)
+    except OSError, e:
+        logging.error('Could net set effective group id: %s' % e)
+    old_umask = os.umask(077)
+
 
 if __name__ == "__main__":
 
@@ -200,8 +294,13 @@ if __name__ == "__main__":
     # create a PID file
     # double fork
     # add signal handling (via signal.signal)
+    
+    dropPrivileges()
 
     parser = argparse.ArgumentParser(description = 'Manage DDeflect bundle serving and retreival.')
+    parser.add_argument('command', action = 'store',
+                        choices = ('start', 'stop', 'restart'),
+                        help = 'start|stop|restart')
     parser.add_argument('-c', dest = 'config_path', action = 'store',
                         default = '/etc/bundlemanager.yaml',
                         help = 'Path to config file.')
@@ -209,5 +308,16 @@ if __name__ == "__main__":
 
     logging.info("Loading config from %s", args.config_path)
     config = yaml.load(open(args.config_path).read())
+    daemon = bundleManagerDaemon('/tmp/bundlemanager.pid', config)
 
-    main(config)
+    def handleSignal(signum, frame):
+        daemon.stop()
+        logging.warn("Closing on SIGTERM")
+    signal.signal(signal.SIGTERM, handleSignal)
+
+    if 'start' == args.command:
+        daemon.start()
+    elif 'stop' == args.command:
+        daemon.stop()
+    elif 'restart' == args.command:
+        daemon.restart()
