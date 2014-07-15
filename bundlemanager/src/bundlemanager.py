@@ -210,16 +210,13 @@ class bundleManagerDaemon():
         try:
             pid = os.fork()
             if pid > 0:
-                raise SystemExit("Couldn't fork!")
                 sys.exit(0)
         except OSError, e:
             logging.error("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
             sys.exit(1)
-        # decouple from parent environment
         try:
             pid = os.fork()
             if pid > 0:
-                raise SystemExit("Couldn't fork!")
                 sys.exit(0)
         except OSError, e:
             sys.stderr.write("fork #2 failed: %d (%s)\n" % (e.errno,
