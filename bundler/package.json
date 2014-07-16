@@ -17,6 +17,7 @@
 		"request":         "latest",
 		"phantom":         "latest",
 		"colors":          "latest",
-		"mime":            "latest"
+		"mime":            "latest",
+        "node-syslog":     "latest"
 	}
 }
