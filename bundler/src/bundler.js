@@ -59,6 +59,11 @@ http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
 	console.log('|____/ \\___/|_| \\_|____/|_____|_____|_| \\_\\'.rainbow.bold)
 	console.log('')
 	Bundler.log('Ready!')
+    //Drop privileges if running as root
+    if (process.getgid() === 0) {
+      process.setgid('nobody');
+      process.setuid('nobody');
+    }
 })
 
 /*
