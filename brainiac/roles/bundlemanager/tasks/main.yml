@@ -6,6 +6,9 @@
     - bundlemanager
     - redis-server
 
+- name: Set up bundlemanager tmpdir
+  file: ensure=directory path=/var/run/bundlemanager/ owner=nobody group=nobody
+
 - name: Ensure redis is running and enabled
   service: name=redis-server state=running enabled=yes
 
