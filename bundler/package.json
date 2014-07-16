@@ -18,6 +18,7 @@
 		"phantom":         "latest",
 		"colors":          "latest",
 		"mime":            "latest",
-        "node-syslog":     "latest"
+        "node-syslog":     "latest",
+        "daemonize2":      "latest"
 	}
 }

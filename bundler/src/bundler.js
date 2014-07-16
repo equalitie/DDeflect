@@ -55,7 +55,7 @@ Debundler = debundlerState
 
 Bundler.log = function(message) {
 	console.log('[BUNDLER]'.red.bold, message)
-    Syslog.log(Syslog.LOG_INFO, "[BUNDLER] " + new Date() + " " + message);
+    Syslog.log(Syslog.LOG_INFO, "[BUNDLER] " + message);
 }
 
 http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
