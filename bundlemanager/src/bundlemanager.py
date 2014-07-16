@@ -16,7 +16,6 @@ import sys, os, pwd, grp
 import signal
 import threading
 import logging
-import atexit
 
 class DebundlerMaker(object):
 
@@ -200,7 +199,7 @@ class bundleManagerDaemon():
         s = DebundlerServer(bundler_url, url_salt, refresh_period,
                             d, v, template_directory=template_directory)
         logging.info("Starting to serve on port %d", port)
-        s.run(debug=True, threaded=True, port=port)
+        s.run(debug=True, threaded=True, port=port, use_reloader=False)
 
     def delpid(self):
         if os.path.exists(self.pidfile):
@@ -223,6 +222,7 @@ class bundleManagerDaemon():
             e.strerror))
             sys.exit(1)
         pid = str(os.getpid())
+
         file(self.pidfile, 'w+').write("%s\n" % pid)
 
     def getpid(self):
@@ -235,10 +235,10 @@ class bundleManagerDaemon():
         return pid
 
     def start(self):
+        
         if self.getpid():
-            logging.error(self.getpid())
             logging.error("Bundlemanager already running\n")
-            #sys.exit(1)
+            sys.exit(1)
         self.daemonise()
         self.run()
 
@@ -249,7 +249,7 @@ class bundleManagerDaemon():
             sys.exit(1)
         try:
             while 1:
-                os.kill(pid, signal.SIGTERM)
+                os.kill(pid, signal.SIGKILL)
                 time.sleep(0.1)
         except OSError, e:
             e = str(e)
@@ -283,7 +283,6 @@ def dropPrivileges(uid_name='nobody', gid_name='no_group'):
 
 
 if __name__ == "__main__":
-
     #TODO here:
     # drop privileges,
     # set up proper logging
@@ -321,3 +320,4 @@ if __name__ == "__main__":
         daemon.stop()
     elif 'restart' == args.command:
         daemon.restart()
+    sys.exit(0)
