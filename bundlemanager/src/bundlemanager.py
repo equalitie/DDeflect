@@ -299,6 +299,9 @@ if __name__ == "__main__":
     parser.add_argument('-c', dest = 'config_path', action = 'store',
                         default = '/etc/bundlemanager.yaml',
                         help = 'Path to config file.')
+    parser.add_argument('-v', dest = 'verbose', action = 'store',
+                        help = 'Verbose mode, not daemonized')
+ 
     args = parser.parse_args()
 
     logging.info("Loading config from %s", args.config_path)
@@ -314,10 +317,22 @@ if __name__ == "__main__":
         logging.warn("Closing on SIGTERM")
     signal.signal(signal.SIGTERM, handleSignal)
 
-    if 'start' == args.command:
-        daemon.start()
-    elif 'stop' == args.command:
-        daemon.stop()
-    elif 'restart' == args.command:
-        daemon.restart()
+    if args.verbose:
+        mainlogger = logging.getLogger()
+
+        logging.basicConfig(level=logging.DEBUG)
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        ch.setFormatter(formatter)
+        mainlogger.addHandler(ch)
+        
+        daemon.run()
+    else:
+        if 'start' == args.command:
+            daemon.start()
+        elif 'stop' == args.command:
+            daemon.stop()
+        elif 'restart' == args.command:
+            daemon.restart()
     sys.exit(0)
