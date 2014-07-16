@@ -298,13 +298,13 @@ if __name__ == "__main__":
     mainlogger = logging.getLogger('bundleManager')
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     mainlogger.setLevel(logging.INFO)
+
     handler = logging.handlers.SysLogHandler(
         facility=logging.handlers.SysLogHandler.LOG_DAEMON,
         address="/dev/log")
     handler.setFormatter(formatter)
     mainlogger.addHandler(handler)
-
-
+ 
     parser = argparse.ArgumentParser(description = 'Manage DDeflect bundle serving and retreival.')
     parser.add_argument('command', action = 'store',
                         choices = ('start', 'stop', 'restart'),
@@ -330,19 +330,20 @@ if __name__ == "__main__":
         logging.warn("Closing on SIGTERM")
     signal.signal(signal.SIGTERM, handleSignal)
 
-    if args.verbose:
+       
+    if 'start' == args.command:
+        if args.verbose:
 
-        logging.basicConfig(level=logging.DEBUG)
-        ch = logging.StreamHandler(sys.stdout)
-        ch.setLevel(logging.DEBUG)
-        ch.setFormatter(formatter)
-        mainlogger.addHandler(ch)
-        daemon.run()
-    else:
-        if 'start' == args.command:
+            logging.basicConfig(level=logging.DEBUG)
+            ch = logging.StreamHandler(sys.stdout)
+            ch.setLevel(logging.DEBUG)
+            ch.setFormatter(formatter)
+            mainlogger.addHandler(ch)
+            daemon.run()
+        else:
             daemon.start()
-        elif 'stop' == args.command:
-            daemon.stop()
-        elif 'restart' == args.command:
-            daemon.restart()
+    elif 'stop' == args.command:
+        daemon.stop()
+    elif 'restart' == args.command:
+        daemon.restart()
     sys.exit(0)
