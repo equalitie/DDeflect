@@ -54,8 +54,11 @@ fs.readFile('debundler.html', function(err, data) {
 Debundler = debundlerState
 
 Bundler.log = function(message) {
-	console.log('[BUNDLER]'.red.bold, message)
-    Syslog.log(Syslog.LOG_INFO, "[BUNDLER] " + message);
+    if(process.argv[2] == '-v'){
+        console.log('[BUNDLER]'.red.bold, message)
+    }else{
+        Syslog.log(Syslog.LOG_INFO, "[BUNDLER] " + message);
+    }
 }
 
 http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
