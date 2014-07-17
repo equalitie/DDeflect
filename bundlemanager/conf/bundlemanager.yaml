@@ -1,6 +1,6 @@
 ---
 general:
-  bundler_path: http://wheezy1.local:3000/?url=
+  bundler_path: http://localhost:8099/?url=
   url_salt: feise4iephohng4ahteequu3paKoaQuaeviashim
   port: 8000
   refresh_period: 1800

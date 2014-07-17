@@ -16,9 +16,7 @@
 # place the daemon scripts in a folder accessible by root. /usr/local/sbin is a good idea
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-#DAEMON="/usr/bin/node /usr/bin/bundler"
-DAEMON="/usr/local/bin/node
-/home/bill/Documents/eq_projects/DDeflect/bundler/daemon.js"
+DAEMON="/usr/bin/node /usr/bin/bundlerd"
 NAME=bundlerd
 DESC="Bundler daemon"
 
@@ -35,10 +33,10 @@ case "$1" in
   stop)
   DAEMON_ARGS="stop"
   echo -n "Stopping $DESC: "
-  start-stop-daemon --start --quiet \
+  start-stop-daemon --stop --quiet \
   		    --exec $DAEMON $DAEMON_ARGS
-		    echo "$NAME."
-		    ;;
+	echo "$NAME."
+  ;; 
   #reload)
   #
   #	If the daemon can reload its config files on the fly

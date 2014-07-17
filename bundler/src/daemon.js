@@ -1,7 +1,7 @@
 var daemon = require("daemonize2").setup({
-    main: "/home/bill/Documents/eq_projects/DDeflect/bundler/src/bundler.js",
+    main: "/usr/bin/bundler",
     name: "bundler",
-    pidfile: "bundler.pid"
+    pidfile: "/tmp/bundler.pid"
 });
 
 switch (process.argv[2]) {
@@ -11,6 +11,7 @@ switch (process.argv[2]) {
         break;
 
     case "stop":
+        console.log('here i am');
         daemon.stop();
         break;
 

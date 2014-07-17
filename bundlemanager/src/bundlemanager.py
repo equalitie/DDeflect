@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import ipdb
 import flask
 import jinja2
 import requests
@@ -178,7 +177,8 @@ class DebundlerServer(flask.Flask):
         return resp
 
 class bundleManagerDaemon():
-    def __init__(self, pidfile, config, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
+    def __init__(self, pidfile, config, stdin='/dev/stdin',
+                stdout='/dev/stdout', stderr='/dev/stderr'):
         self.stdin = stdin
         self.stdout = stdout
         self.stderr = stderr
@@ -224,8 +224,9 @@ class bundleManagerDaemon():
             e.strerror))
             sys.exit(1)
         pid = str(os.getpid())
-
-        file(self.pidfile, 'w+').write("%s\n" % pid)
+        
+        with open(self.pidfile, 'w+') as f:
+            f.write("%s\n" % pid)
 
     def getpid(self):
         try:
