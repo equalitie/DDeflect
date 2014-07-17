@@ -69,6 +69,9 @@ class DebundlerServer(flask.Flask):
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
 
+    def reloadVEdges(vedge_manager):
+        self.vedge_manager = vedge_manager
+
     def cleanBundles(self, stale_time=600):
         #DEPRECATED, replaced by redis expiry
         delete_list = []
@@ -185,6 +188,8 @@ class bundleManagerDaemon():
         self.pidfile = pidfile
         self.config = config
         self.logger = logging.getLogger('BundleManager')
+        self.debundleServer = None
+
     def run(self):
 
         port = self.config["general"]["port"]
@@ -198,10 +203,10 @@ class bundleManagerDaemon():
 
         d = DebundlerMaker(refresh_period)
         v = VedgeManager(vedge_data)
-        s = DebundlerServer(bundler_url, url_salt, refresh_period,
+        self.debundleServer = DebundlerServer(bundler_url, url_salt, refresh_period,
                             d, v, template_directory=template_directory)
         self.logger.info("Starting to serve on port %d", port)
-        s.run(debug=True, threaded=True, port=port, use_reloader=False)
+        self.debundleServer.run(debug=True, threaded=True, port=port, use_reloader=False)
 
     def delpid(self):
         if os.path.exists(self.pidfile):
@@ -285,8 +290,6 @@ def dropPrivileges(uid_name='nobody', gid_name='no_group'):
         logger.error('Could net set effective group id: %s' % e)
     old_umask = os.umask(077)
 
-
-
 if __name__ == "__main__":
     #TODO here:
     # drop privileges,
@@ -320,6 +323,7 @@ if __name__ == "__main__":
 
     mainlogger.info("Loading config from %s", args.config_path)
     config = yaml.load(open(args.config_path).read())
+
     dropPrivileges(config["general"]["uid_name"],
                     config["general"]["gid_name"])
 
@@ -327,14 +331,21 @@ if __name__ == "__main__":
     daemon = bundleManagerDaemon(pidfile, config)
 
     def handleSignal(signum, frame):
-        daemon.stop()
-        logging.warn("Closing on SIGTERM")
-    signal.signal(signal.SIGTERM, handleSignal)
+        if signum == signal.SIGTERM:
+            daemon.stop()
+            mainlogger.warn("Closing on SIGTERM")
+        else signum == signal.SIGHUP:
+            if daemon.debundleServer:
+                mainlogger.warn("Reload V-Edge list")
+                daemon.debundleServer.reloadVEdges(
+                    VedgeManager(config['v_edges'])
+                )
 
+    signal.signal(signal.SIGTERM, handleSignal)
+    signal.signal(signal.SIGHUP, handleSignal)
        
     if 'start' == args.command:
         if args.verbose:
-
             logging.basicConfig(level=logging.DEBUG)
             ch = logging.StreamHandler(sys.stdout)
             ch.setLevel(logging.DEBUG)
