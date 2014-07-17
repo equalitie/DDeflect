@@ -23,7 +23,7 @@ options {
 	dnssec-validation auto;
 
 	auth-nxdomain no;    # conform to RFC1035
-	listen-on { 127.0.0.1; {{ansible_eth0["ipv4"]["address"]}}; };
+	listen-on { 127.0.0.1; {{ansible_eth0.ipv4.address}}; };
 
 	allow-query { 127.0.0.1; {{dns_primary}}; };
 	allow-transfer { 127.0.0.1; {{dns_primary}}; };

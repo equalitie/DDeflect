@@ -16,11 +16,15 @@
 #NOTE: inside the template we access "item.key" in order to access the
 #domain we're working with. it's odd but it works.
 - name: Per-site zone files
-  template: src=zone.j2 dest=/tmp/{{ item.key }}.zone owner=root group=root
+  template: src=zone.j2 dest=/tmp/{{ item.key }}.zone owner=root group=bind
   with_dict: remap
   tags: dns
 
 - name: Central DNS zone files
-  template: src=networkzone.j2 dest=/tmp/{{item}}.zone owner=root group=root
+  template: src=networkzone.j2 dest=/tmp/{{item}}.zone owner=root group=bind
   with_items: dnets
+  tags: dns
+
+- name: Master zone file configuration
+  template: src=named.conf.local.j2 dest=/etc/bind/named.conf.local owner=root group=bind
   tags: dns

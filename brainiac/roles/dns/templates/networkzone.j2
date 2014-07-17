@@ -1,10 +1,19 @@
+# Edge records for {{ item }}
 {% for edge in groups[item] %}
 {{edge}}    IN      A     {{hostvars[edge]['ansible_eth0']['ipv4']['address']}}
 {% endfor %}
 
+# Origin records for {{ item }}
 {% for site, siteattrs in remap.iteritems() %}
 {% if item == siteattrs["network"] %}
 {{siteattrs["hidden"]}}.origin     IN           A       {{siteattrs["origin"]}}
 {{siteattrs["hidden"]}}.origin.nocache     IN           A       {{siteattrs["origin"]}}
 {% endif %}
 {% endfor %}
+
+# Site records for {{ item }}
+{% if item in remap.keys() %}
+{% for domain, attributes in remap[item]["dns_records"].iteritems() %}
+{{domain}}       IN      {{attributes["type"]}}    {{attributes["value"]}}
+{% endfor %}
+{% endif %}

@@ -1,3 +1,5 @@
 {% for domain, attributes in remap[item.key]["dns_records"].iteritems() %}
+{% if domain not in dnets %}
 {{domain}}       IN      {{attributes["type"]}}    {{attributes["value"]}}
+{% endif %}
 {% endfor %}
