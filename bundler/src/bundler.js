@@ -33,7 +33,7 @@ process.on('uncaughtException', function(err) {
  * Log to syslog
  */
 
-Syslog.init("node-syslog", Syslog.LOG_PID | Syslog.LOG_ODELAY, Syslog.LOG_LOCAL0);
+Syslog.init("bundler", Syslog.LOG_PID | Syslog.LOG_ODELAY, Syslog.LOG_LOCAL0);
 
 /*
  * Initialize Bundler.
