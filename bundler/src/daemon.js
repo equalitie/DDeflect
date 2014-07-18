@@ -1,7 +1,7 @@
 var daemon = require("daemonize2").setup({
     main: "/usr/bin/bundler",
     name: "bundler",
-    pidfile: "/tmp/bundler.pid"
+    pidfile: "/var/tmp/bundler/bundler.pid"
 });
 
 switch (process.argv[2]) {
