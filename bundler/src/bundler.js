@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /*
 * Load dependencies.
 */
@@ -13,7 +12,8 @@ var portScanner = require('portscanner'),
 	mime        = require('mime'),
 	http        = require('http'),
 	path        = require('path'),
-	fs          = require('fs')
+	fs          = require('fs'),
+    Syslog      = require('node-syslog')
 
 /*
  * Disable warnings.
@@ -28,6 +28,12 @@ console.warn = function() {}
 process.on('uncaughtException', function(err) {
     console.error(err.stack)
 })
+
+/*
+ * Log to syslog
+ */
+
+Syslog.init("bundler", Syslog.LOG_PID | Syslog.LOG_ODELAY, Syslog.LOG_LOCAL0);
 
 /*
  * Initialize Bundler.
@@ -48,7 +54,11 @@ fs.readFile('debundler.html', function(err, data) {
 Debundler = debundlerState
 
 Bundler.log = function(message) {
-	console.log('[BUNDLER]'.red.bold, message)
+    if(process.argv[2] == '-v'){
+        console.log('[BUNDLER]'.red.bold, message)
+    }else{
+        Syslog.log(Syslog.LOG_INFO, "[BUNDLER] " + message);
+    }
 }
 
 http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
@@ -59,6 +69,11 @@ http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
 	console.log('|____/ \\___/|_| \\_|____/|_____|_____|_| \\_\\'.rainbow.bold)
 	console.log('')
 	Bundler.log('Ready!')
+    //Drop privileges if running as root
+    if (process.getgid() === 0) {
+      process.setgid('nobody');
+      process.setuid('nobody');
+    }
 })
 
 /*

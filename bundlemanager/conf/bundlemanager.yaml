@@ -1,11 +1,13 @@
 ---
 general:
-  bundler_path: http://wheezy1.local:3000/?url=
+  bundler_path: http://localhost:8099/?url=
   url_salt: feise4iephohng4ahteequu3paKoaQuaeviashim
   port: 8000
   refresh_period: 1800
   template_directory: ../lib/templates/
-
+  pidfile: /var/tmp/bundlemanager/bundlemanager.pid
+  uid_name: nobody
+  gid_name: nobody
 v_edges:
   nosmo.me:
     availability:
