@@ -69,7 +69,7 @@ class DebundlerServer(flask.Flask):
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
 
-    def reloadVEdges(vedge_manager):
+    def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
 
     def cleanBundles(self, stale_time=600):
@@ -290,6 +290,21 @@ def dropPrivileges(uid_name='nobody', gid_name='no_group'):
         logger.error('Could net set effective group id: %s' % e)
     old_umask = os.umask(077)
 
+def createHandler(daemon,config_path):
+    def _handleSignal(signum, frame):
+        if signum == signal.SIGTERM:
+            daemon.stop()
+            mainlogger.warn("Closing on SIGTERM")
+        elif signum == signal.SIGHUP:
+            if daemon.debundleServer:
+                mainlogger.warn("Reload V-Edge list")
+                config = yaml.load(open(args.config_path).read())
+                daemon.debundleServer.reloadVEdges(
+                    VedgeManager(config['v_edges'])
+                )
+    return _handleSignal 
+
+
 if __name__ == "__main__":
     #TODO here:
     # drop privileges,
@@ -329,20 +344,9 @@ if __name__ == "__main__":
 
     pidfile = config['general']['pidfile']
     daemon = bundleManagerDaemon(pidfile, config)
-
-    def handleSignal(signum, frame):
-        if signum == signal.SIGTERM:
-            daemon.stop()
-            mainlogger.warn("Closing on SIGTERM")
-        else signum == signal.SIGHUP:
-            if daemon.debundleServer:
-                mainlogger.warn("Reload V-Edge list")
-                daemon.debundleServer.reloadVEdges(
-                    VedgeManager(config['v_edges'])
-                )
-
-    signal.signal(signal.SIGTERM, handleSignal)
-    signal.signal(signal.SIGHUP, handleSignal)
+    import ipdb
+    signal.signal(signal.SIGTERM, createHandler(daemon, args.config_path))
+    signal.signal(signal.SIGHUP, createHandler(daemon, args.config_path))
        
     if 'start' == args.command:
         if args.verbose:
