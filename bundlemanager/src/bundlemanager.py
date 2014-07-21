@@ -121,7 +121,6 @@ class DebundlerServer(flask.Flask):
         self.logging.info("Got a request for bundle with hash of %s", bundlehash)
         if not self.redis.sismember("bundles", bundlehash):
             flask.abort(404)
-
         bundle_get = json.loads(self.redis.get(bundlehash))
         if "bundle" not in bundle_get:
             self.logging.error("Failed to get a valid bundle from bundle key %s", bundlehash)
@@ -139,7 +138,7 @@ class DebundlerServer(flask.Flask):
                 flask.abort(503)
             return self.serveBundle(path.split("/")[1])
 
-        v_edge = self.vedge_manager.getVedge()
+        v_edge = self.vedge_manager.getVedge()[0]
         key = self.debundler_maker.key
         iv = self.debundler_maker.iv
 
@@ -344,7 +343,6 @@ if __name__ == "__main__":
 
     pidfile = config['general']['pidfile']
     daemon = bundleManagerDaemon(pidfile, config)
-    import ipdb
     signal.signal(signal.SIGTERM, createHandler(daemon, args.config_path))
     signal.signal(signal.SIGHUP, createHandler(daemon, args.config_path))
        
