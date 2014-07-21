@@ -2,6 +2,7 @@
 general:
   bundler_path: http://localhost:8099/?url=
   url_salt: feise4iephohng4ahteequu3paKoaQuaeviashim
+  hmac_key: f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7
   port: 8000
   refresh_period: 1800
   template_directory: ../lib/templates/
@@ -9,7 +10,7 @@ general:
   uid_name: nobody
   gid_name: nobody
 v_edges:
-  nosmo.me:
+  "vedge_1":
     availability:
       start: ""
       end: ""
