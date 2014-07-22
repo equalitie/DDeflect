@@ -182,9 +182,9 @@ Bundler.mainProcess = function(req, res, process) {
 					Bundler.log('Begin scanning resources.'.inverse)
 					process.resources = Bundler.replaceResource(process.resources)
 					Bundler.log('Encrypting bundle: '.bold + process.resources[0].url.green)
-					var key     = CryptoJS.enc.Hex.parse('0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a')
-					var iVector = CryptoJS.enc.Hex.parse('94949494949494949494949494949494')
-					var HMACKey = CryptoJS.enc.Hex.parse('f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7')
+					var key     = CryptoJS.enc.Hex.parse(req.query.key)//'0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a')
+					var iVector = CryptoJS.enc.Hex.parse(req.query.iv)//'94949494949494949494949494949494')
+					var HMACKey = CryptoJS.enc.Hex.parse(req.query.hmackey)//'f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7')
 					var encrypted = CryptoJS.AES.encrypt(
 						process.resources[0].content, key, {iv: iVector}
 					).toString()

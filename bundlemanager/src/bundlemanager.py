@@ -23,6 +23,7 @@ class DebundlerMaker(object):
         self.refresh_period = refresh_period
         self.key = None
         self.iv = None
+        self.hmac_key = None
         self.genKeys()
         self.logger = logging.getLogger('bundleManager')
         self.refresher = threading.Timer(self.refresh_period,
@@ -31,8 +32,11 @@ class DebundlerMaker(object):
     def genKeys(self):
         keybytes = os.urandom(16)
         ivbytes = os.urandom(16)
+        hmackeybytes = os.urandom(16)
         if self.key and self.iv:
-            self.logger.info("Rotating keys. Old key was %s and old IV was %s", self.key, self.iv)
+            self.logger.info("Rotating keys. Old key was %s, old hmac key was %s
+            and old IV was %s", self.key, self.iv, self.hmac_key)
+        self.hmac_key = keybytes.encode('hex')
         self.key = keybytes.encode("hex")
         self.iv = ivbytes.encode("hex")
 
@@ -141,6 +145,7 @@ class DebundlerServer(flask.Flask):
         v_edge = self.vedge_manager.getVedge()[0]
         key = self.debundler_maker.key
         iv = self.debundler_maker.iv
+        hmac_key = self.debundler_maker.hmac_key
 
         if not path:
             path = "/"
@@ -148,7 +153,8 @@ class DebundlerServer(flask.Flask):
         #DEBUG given that we're doing a dumb example here, let's just
         #use the first bundle we have
         request_host = flask.request.headers.get('Host')
-        url = "%s%s" % (request_host, path)
+        url = request_host.format(path, key, iv, hmac_key)
+
         self.logging.debug("Request is for %s", url)
 
         #TODO set cookies here

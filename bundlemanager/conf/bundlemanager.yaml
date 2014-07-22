@@ -1,6 +1,6 @@
 ---
 general:
-  bundler_path: http://localhost:8099/?url=
+  bundler_path: http://localhost:8099/?url={path}&key={key}&iv={iv}&hmackey={hmackey}
   url_salt: feise4iephohng4ahteequu3paKoaQuaeviashim
   hmac_key: f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7
   port: 8000
