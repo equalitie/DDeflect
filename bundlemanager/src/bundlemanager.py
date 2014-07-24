@@ -56,7 +56,7 @@ class DebundlerServer(flask.Flask):
         self.debundler_maker = debundler_maker
         self.vedge_manager = vedge_manager
         self.bundles = collections.defaultdict(dict)
-        
+
         self.bundler_url = bundler_url
         self.salt = salt
         self.refresh_period = refresh_period
@@ -229,7 +229,7 @@ class bundleManagerDaemon():
             e.strerror))
             sys.exit(1)
         pid = str(os.getpid())
-        
+
         with open(self.pidfile, 'w+') as f:
             f.write("%s\n" % pid)
 
@@ -243,7 +243,7 @@ class bundleManagerDaemon():
         return pid
 
     def start(self):
-        
+
         if self.getpid():
             self.logger.error("Bundlemanager already running\n")
             sys.exit(1)
@@ -283,11 +283,11 @@ def dropPrivileges(uid_name='nobody', gid_name='no_group'):
     try:
         os.setgid(running_gid)
     except OSError, e:
-        logger.error('Could net set effective group id: %s' % e)
+        logger.error('Could not set effective group id: %s', e)
     try:
         os.setuid(running_uid)
     except OSError, e:
-        logger.error('Could net set effective group id: %s' % e)
+        logger.error('Could not set effective group id: %s', e)
     old_umask = os.umask(077)
 
 def createHandler(daemon,config_path):
@@ -302,7 +302,7 @@ def createHandler(daemon,config_path):
                 daemon.debundleServer.reloadVEdges(
                     VedgeManager(config['v_edges'])
                 )
-    return _handleSignal 
+    return _handleSignal
 
 
 if __name__ == "__main__":
@@ -313,7 +313,7 @@ if __name__ == "__main__":
     # create a PID file
     # double fork
     # add signal handling (via signal.signal)
-    
+
     mainlogger = logging.getLogger('bundleManager')
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     mainlogger.setLevel(logging.INFO)
@@ -323,7 +323,7 @@ if __name__ == "__main__":
         address="/dev/log")
     handler.setFormatter(formatter)
     mainlogger.addHandler(handler)
- 
+
     parser = argparse.ArgumentParser(description = 'Manage DDeflect bundle serving and retreival.')
     parser.add_argument('command', action = 'store',
                         choices = ('start', 'stop', 'restart'),
@@ -333,7 +333,7 @@ if __name__ == "__main__":
                         help = 'Path to config file.')
     parser.add_argument('-v', '--verbose', dest = 'verbose', action = 'store_true',
                         help = 'Verbose mode, not daemonized')
- 
+
     args = parser.parse_args()
 
     mainlogger.info("Loading config from %s", args.config_path)
@@ -347,19 +347,14 @@ if __name__ == "__main__":
     import ipdb
     signal.signal(signal.SIGTERM, createHandler(daemon, args.config_path))
     signal.signal(signal.SIGHUP, createHandler(daemon, args.config_path))
-       
-    if 'start' == args.command:
-        if args.verbose:
-            logging.basicConfig(level=logging.DEBUG)
-            ch = logging.StreamHandler(sys.stdout)
-            ch.setLevel(logging.DEBUG)
-            ch.setFormatter(formatter)
-            mainlogger.addHandler(ch)
-            daemon.run()
-        else:
-            daemon.start()
-    elif 'stop' == args.command:
-        daemon.stop()
-    elif 'restart' == args.command:
-        daemon.restart()
+
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setLevel(logging.DEBUG)
+        ch.setFormatter(formatter)
+        mainlogger.addHandler(ch)
+        daemon.run()
+    else:
+        daemon.start()
     sys.exit(0)
