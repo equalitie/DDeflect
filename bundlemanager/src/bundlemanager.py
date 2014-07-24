@@ -344,7 +344,6 @@ if __name__ == "__main__":
 
     pidfile = config['general']['pidfile']
     daemon = bundleManagerDaemon(pidfile, config)
-    import ipdb
     signal.signal(signal.SIGTERM, createHandler(daemon, args.config_path))
     signal.signal(signal.SIGHUP, createHandler(daemon, args.config_path))
 
