@@ -11,7 +11,10 @@ import json
 import collections
 import time
 import hashlib
-import sys, os, pwd, grp
+import sys
+import os
+import pwd
+import grp
 import signal
 import threading
 import logging
@@ -24,7 +27,6 @@ class DebundlerMaker(object):
         self.key = None
         self.iv = None
         self.genKeys()
-        self.logger = logging.getLogger('bundleManager')
         self.refresher = threading.Timer(self.refresh_period,
                                          self.genKeys())
 
@@ -32,7 +34,7 @@ class DebundlerMaker(object):
         keybytes = os.urandom(16)
         ivbytes = os.urandom(16)
         if self.key and self.iv:
-            self.logger.info("Rotating keys. Old key was %s and old IV was %s", self.key, self.iv)
+            logging.info("Rotating keys. Old key was %s and old IV was %s", self.key, self.iv)
         self.key = keybytes.encode("hex")
         self.iv = ivbytes.encode("hex")
 
@@ -50,7 +52,6 @@ class DebundlerServer(flask.Flask):
     def __init__(self, bundler_url, salt, refresh_period,
                  debundler_maker, vedge_manager, template_directory=""):
         super(DebundlerServer, self).__init__("DebundlerServer")
-        self.logging = logging.getLogger('bundleManager')
         if template_directory:
             self.template_folder = template_directory
         self.debundler_maker = debundler_maker
@@ -86,7 +87,7 @@ class DebundlerServer(flask.Flask):
 
     def genBundle(self, host, path):
         bundle_s = requests.Session()
-        self.logging.debug("Bundle request path is %s",  path)
+        logging.debug("Bundle request path is %s",  path)
         if not path:
             path = "/"
         if not path.startswith("/"):
@@ -100,7 +101,7 @@ class DebundlerServer(flask.Flask):
         bundle_get = bundle_s.get(self.bundler_url + "%s%s" % (url_scheme, url))
 
         if bundle_get.status_code > 400:
-            self.logging.error("Failed to get bundle for %s: %s (%s)", url,
+            logging.error("Failed to get bundle for %s: %s (%s)", url,
                           bundle_get.text, bundle_get.status_code)
 
         bundle_content = bundle_get.text
@@ -118,13 +119,13 @@ class DebundlerServer(flask.Flask):
         return bundle_signature
 
     def serveBundle(self, bundlehash):
-        self.logging.info("Got a request for bundle with hash of %s", bundlehash)
+        logging.info("Got a request for bundle with hash of %s", bundlehash)
         if not self.redis.sismember("bundles", bundlehash):
             flask.abort(404)
 
         bundle_get = json.loads(self.redis.get(bundlehash))
         if "bundle" not in bundle_get:
-            self.logging.error("Failed to get a valid bundle from bundle key %s", bundlehash)
+            logging.error("Failed to get a valid bundle from bundle key %s", bundlehash)
             flask.abort(503)
         else:
             bundle = bundle_get["bundle"]
@@ -133,7 +134,7 @@ class DebundlerServer(flask.Flask):
     def rootRoute(self, path):
 
         if path.startswith("_bundle"):
-            self.logging.debug("Got a _bundle request at %s", path)
+            logging.debug("Got a _bundle request at %s", path)
             if "/" not in path:
                 logging.error("got request that started with _bundle but had no slash!")
                 flask.abort(503)
@@ -150,7 +151,7 @@ class DebundlerServer(flask.Flask):
         #use the first bundle we have
         request_host = flask.request.headers.get('Host')
         url = "%s%s" % (request_host, path)
-        self.logging.debug("Request is for %s", url)
+        logging.debug("Request is for %s", url)
 
         #TODO set cookies here
         #flask.request.cookies.get()
@@ -187,7 +188,6 @@ class bundleManagerDaemon():
         self.stderr = stderr
         self.pidfile = pidfile
         self.config = config
-        self.logger = logging.getLogger('BundleManager')
         self.debundleServer = None
 
     def run(self):
@@ -205,7 +205,7 @@ class bundleManagerDaemon():
         v = VedgeManager(vedge_data)
         self.debundleServer = DebundlerServer(bundler_url, url_salt, refresh_period,
                             d, v, template_directory=template_directory)
-        self.logger.info("Starting to serve on port %d", port)
+        logging.info("Starting to serve on port %d", port)
         self.debundleServer.run(debug=True, threaded=True, port=port, use_reloader=False)
 
     def delpid(self):
@@ -218,7 +218,7 @@ class bundleManagerDaemon():
             if pid > 0:
                 sys.exit(0)
         except OSError, e:
-            self.logger.error("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
+            logging.error("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
             sys.exit(1)
         try:
             pid = os.fork()
@@ -245,7 +245,7 @@ class bundleManagerDaemon():
     def start(self):
 
         if self.getpid():
-            self.logger.error("Bundlemanager already running\n")
+            logging.error("Bundlemanager already running\n")
             sys.exit(1)
         self.daemonise()
         self.run()
@@ -253,7 +253,7 @@ class bundleManagerDaemon():
     def stop(self):
         pid = self.getpid()
         if not pid:
-            self.logger.error("Bundlemanager not running\n")
+            logging.error("Bundlemanager not running\n")
             sys.exit(1)
         try:
             while 1:
@@ -264,7 +264,7 @@ class bundleManagerDaemon():
             if e.find("No such process") > 0:
                 self.delpid()
             else:
-                self.logger.error(e)
+                logging.error(e)
                 sys.exit(1)
 
     def restart(self):
@@ -275,7 +275,6 @@ def dropPrivileges(uid_name='nobody', gid_name='no_group'):
     if os.getuid() != 0:
         return
 
-    logger = logging.getLogger('BundleManager')
     running_uid = pwd.getpwnam(uid_name).pw_uid
     running_gid = grp.getgrnam(gid_name).gr_gid
 
@@ -283,21 +282,21 @@ def dropPrivileges(uid_name='nobody', gid_name='no_group'):
     try:
         os.setgid(running_gid)
     except OSError, e:
-        logger.error('Could not set effective group id: %s', e)
+        logging.error('Could not set effective group id: %s', e)
     try:
         os.setuid(running_uid)
     except OSError, e:
-        logger.error('Could not set effective group id: %s', e)
+        logging.error('Could not set effective group id: %s', e)
     old_umask = os.umask(077)
 
 def createHandler(daemon,config_path):
     def _handleSignal(signum, frame):
         if signum == signal.SIGTERM:
             daemon.stop()
-            mainlogger.warn("Closing on SIGTERM")
+            logging.warn("Closing on SIGTERM")
         elif signum == signal.SIGHUP:
             if daemon.debundleServer:
-                mainlogger.warn("Reload V-Edge list")
+                logging.warn("Reload V-Edge list")
                 config = yaml.load(open(args.config_path).read())
                 daemon.debundleServer.reloadVEdges(
                     VedgeManager(config['v_edges'])
@@ -306,23 +305,6 @@ def createHandler(daemon,config_path):
 
 
 if __name__ == "__main__":
-    #TODO here:
-    # drop privileges,
-    # set up proper logging
-    #(log to stdout if we're running interactive, otherwise log to syslog)
-    # create a PID file
-    # double fork
-    # add signal handling (via signal.signal)
-
-    mainlogger = logging.getLogger('bundleManager')
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    mainlogger.setLevel(logging.INFO)
-
-    handler = logging.handlers.SysLogHandler(
-        facility=logging.handlers.SysLogHandler.LOG_DAEMON,
-        address="/dev/log")
-    handler.setFormatter(formatter)
-    mainlogger.addHandler(handler)
 
     parser = argparse.ArgumentParser(description = 'Manage DDeflect bundle serving and retreival.')
     parser.add_argument('command', action = 'store',
@@ -336,7 +318,17 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    mainlogger.info("Loading config from %s", args.config_path)
+    logger = logging.getLogger()
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+        handler = logging.StreamHandler()
+    else:
+        logger.setLevel(logging.INFO)
+        handler = logging.handlers.SysLogHandler(address="/dev/log")
+    handler.setFormatter(logging.Formatter("bundlemanager [%(process)d] %(levelname)s %(message)s"))
+    logger.addHandler(handler)
+
+    logging.info("Loading config from %s", args.config_path)
     config = yaml.load(open(args.config_path).read())
 
     dropPrivileges(config["general"]["uid_name"],
@@ -349,11 +341,6 @@ if __name__ == "__main__":
     signal.signal(signal.SIGHUP, createHandler(daemon, args.config_path))
 
     if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
-        ch = logging.StreamHandler(sys.stdout)
-        ch.setLevel(logging.DEBUG)
-        ch.setFormatter(formatter)
-        mainlogger.addHandler(ch)
         daemon.run()
     else:
         daemon.start()
