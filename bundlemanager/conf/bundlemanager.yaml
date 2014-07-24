@@ -7,7 +7,7 @@ general:
   template_directory: ../lib/templates/
   pidfile: /var/run/bundlemanager/bundlemanager.pid
   uid_name: nobody
-  gid_name: nobody
+  gid_name: nogroup
 
 v_edges:
   nosmo.me:
