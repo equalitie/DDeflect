@@ -2,8 +2,8 @@
 
 ### BEGIN INIT INFO
 # Provides:          bundlemanager
-# Required-Start:    
-# Required-Stop:     
+# Required-Start:
+# Required-Stop:
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: Start daemon at boot time
@@ -17,7 +17,7 @@
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON=/usr/bin/bundlemanager
-NAME=bundlemanagerd
+NAME=bundlemanager
 DESC="Bundlemanager daemon"
 
 test -f $DAEMON || exit 0
@@ -39,7 +39,7 @@ case "$1" in
   		    --exec $DAEMON $DAEMON_ARGS
 	echo "$NAME."
   ;;
-  #reload)
+  reload)
   #
   #	If the daemon can reload its config files on the fly
   #	for example by sending it SIGHUP, do it here.
@@ -47,10 +47,10 @@ case "$1" in
   #	If the daemon responds to changes in its config file
   #	directly anyway, make this a do-nothing entry.
   #
-  # echo "Reloading $DESC configuration files."
-  # start-stop-daemon --stop --signal 1 --quiet --pidfile \
-  # /var/run/$NAME.pid --exec $DAEMON
-  #;;
+   echo "Reloading $DESC configuration files."
+   start-stop-daemon --stop --signal 1 --quiet --pidfile \
+   /var/run/$NAME/$NAME.pid --exec $DAEMON
+  ;;
   restart|force-reload)
   #
   #	If the "reload" option is implemented, move the "force-reload"
@@ -66,11 +66,9 @@ case "$1" in
 
   *)
   N=/etc/init.d/$NAME
-  # echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
-  echo "Usage: $N {start|stop|restart|force-reload}" >&2
+  echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
   exit 1
   ;;
 esac
 
 exit 0
-
