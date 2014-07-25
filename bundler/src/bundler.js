@@ -19,54 +19,58 @@ var portScanner = require('portscanner'),
  * Disable warnings.
  */
 
-console.warn = function() {};
+// bring them on!
+//console.warn = function() {};
 
 /*
  * Catch exceptions so that we don't crash immediately
  */
 
-process.on('uncaughtException', function(err) {
-    console.error(err.stack);
-});
+// bring them on!
+//process.on('uncaughtException', function(err) {
+//    console.error(err.stack);
+//});
 
 /*
  * Log to syslog
  */
-
 Syslog.init("bundler", Syslog.LOG_PID | Syslog.LOG_ODELAY, Syslog.LOG_LOCAL0);
 
 /*
  * Initialize Bundler.
  */
-
 var Bundler = express()
 	.use(require('compression')())
 	.use(require('body-parser')())
 	.use(require('method-override')());
 
+// initialize Debundler
 var Debundler = '';
 var debundlerState = '';
 fs.readFile('debundler.html', function(err, data) {
 	if (err) { throw err; }
 	debundlerState = data.toString();
 });
-
 Debundler = debundlerState;
+// TODO check if debundler.html is found, otherwise we will stare at blank pages!!
 
+// print to commandline if -v
 Bundler.log = function(message) {
-    if(process.argv[2] == '-v'){
-        console.log('[BUNDLER]'.red.bold, message);
-    }else{
-        Syslog.log(Syslog.LOG_INFO, "[BUNDLER] " + message);
-    }
+	if (process.argv[2] == '-v') {
+		console.log('[BUNDLER] '.red.bold, message);
+	} else {
+		Syslog.log(Syslog.LOG_INFO, '[BUNDLER] '+message);
+	}
 };
 
 http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
-	console.log('____  _   _ _   _ ____  _     _____ ____  '.rainbow.bold);
-	console.log('| __ )| | | | \\ | |  _ \\| |   | ____|  _ \\ '.rainbow.bold);
-	console.log('|  _ \\| | | |  \\| | | | | |   |  _| | |_) |'.rainbow.bold);
-	console.log('| |_) | |_| | |\\  | |_| | |___| |___|  _ < '.rainbow.bold);
-	console.log('|____/ \\___/|_| \\_|____/|_____|_____|_| \\_\\'.rainbow.bold);
+  var banner = [
+'____  _   _ _   _ ____  _     _____ ____  ',
+'| __ )| | | | \\ | |  _ \\| |   | ____|  _ \\ ',
+'|  _ \\| | | |  \\| | | | | |   |  _| | |_) |',
+'| |_) | |_| | |\\  | |_| | |___| |___|  _ < ',
+'|____/ \\___/|_| \\_|____/|_____|_____|_| \\_\\']
+  banner.map(function(l) {console.log(l.rainbow.bold)});
 	console.log('');
 	Bundler.log('Ready!');
     //Drop privileges if running as root
@@ -87,12 +91,13 @@ Bundler.route('/').get(function(req, res) {
 });
 
 Bundler.beginProcess = function(req, res) {
-	// Initialize object for the collection of resources the website is dependent on.
-	// We will fetch these resources as part of the bundle.
+	// Initialize collection of resources the website is dependent on.
+	// Will fetch resources as part of the bundle.
 	var resources = {};
 	var resourceNumber = 0;
 	var pageLoadedCutoff = false;
 	var resourceDomain = undefined;
+  //var url = req.query.url;
 	if (req.query.url.indexOf('http') == -1) {
 		// we're being passed a query with no host - let's see if we can get a passed location
 		Bundler.log('No valid url present in query [' + req.query.url + '] - attempting to get host');
@@ -135,8 +140,7 @@ Bundler.beginProcess = function(req, res) {
 						ph: ph,
 						page: page,
 						resourceDomain: resourceDomain
-					}
-				);
+					});
 			});
 		}, {port: freePort}
 		);
@@ -208,8 +212,7 @@ Bundler.isSearchableFile = function(url) {
 			extension = extension.substring(0, extension.length - 1);
 		}
 		if (mime.lookup(extension).match(
-			/(text|css|javascript|plain|json|xml|octet\-stream)/
-		)) {
+			/(text|css|javascript|plain|json|xml|octet\-stream)/)) {
 			return true;
 		}
 	}
@@ -224,8 +227,7 @@ Bundler.fetchResource = function(url, resourceNumber, callback) {
 	if (resourceNumber == 0) {
 		enc = 'utf8';
 	}
-	request(url,
-		{
+	request(url, {
 			method: 'GET',
 			encoding: enc,
 			timeout: 8000
