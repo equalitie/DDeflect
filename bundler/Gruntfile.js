@@ -6,12 +6,12 @@ module.exports = function(grunt) {
     debian_package: {
       options: {
         maintainer: {
-            name: "James D Bloom",
-            email: "jamesdbloom@email.com"
+            name: "Distributed Deflect Packaging",
+            email: "sysops@equalit.ie"
         },
-        prefix: "prefix-",
+        //prefix: "prefix-",
         name: "bundler",
-        postfix: "-postfix",
+        //postfix: "-postfix",
         short_description: "The bundler.",
         long_description: "The bundler described in a verbose fashion.",
         version: "2.0.0",
@@ -19,10 +19,9 @@ module.exports = function(grunt) {
       },
       files: {
         src: [
-            'dist/**',
-            '!dist'
+            'src/**'
         ],
-        dest: '/var/www/'
+        dest: '/usr/bin'
       }
     },
     jshint: {
