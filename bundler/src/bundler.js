@@ -97,19 +97,19 @@ Bundler.beginProcess = function(req, res) {
 	var resourceNumber = 0;
 	var pageLoadedCutoff = false;
 	var resourceDomain = undefined;
-  //var url = req.query.url;
-	if (req.query.url.indexOf('http') == -1) {
+  var url = req.query.url;
+	if (url.indexOf('http') == -1) {
 		// we're being passed a query with no host - let's see if we can get a passed location
-		Bundler.log('No valid url present in query [' + req.query.url + '] - attempting to get host');
+		Bundler.log('No valid url present in query [' + url + '] - attempting to get host');
 		if (typeof(req.headers['host']) !== 'undefined') {
 			resourceDomain = req.headers['host'] + '/';
 			Bundler.log('Got a valid host of ' + req.headers['host']);
 			// There are two obscenely dumb things happening here.
 			// * Under no circumstances should I be forcing http - this will
 			// need to be something that we set per-origin
-			// * Redefining req.query.url is obviously awful. I did this
+			// * Redefining url is obviously awful. I did this
 			// because I'm no good at this javascripting and didn't want to mess with mainProcess.
-			req.query.url = 'http://' + resourceDomain + req.query.url;
+			url = 'http://' + resourceDomain + url;
 		}
 		else {
 			Bundler.log('Failed to get a valid host - request invalid');
@@ -118,17 +118,17 @@ Bundler.beginProcess = function(req, res) {
 		}
 	}
 	else {
-		if (!req.query.url) {
+		if (!url) {
 			res.end('');
 			return;
 		}
-		resourceDomain = req.query.url
+		resourceDomain = url
 			.match(/^https?:\/\/(\w|\.)+(\/|$)/)[0]
 			.match(/\w+\.\w+(\.\w+)?(\/|$)/)[0];
 	}
 	if (resourceDomain[resourceDomain.length - 1] !== '/') { resourceDomain += '/'; }
 	Bundler.log(
-		'Got a request for ' + req.query.url.green + ' ' + '['.inverse
+		'Got a request for ' + url.green + ' ' + '['.inverse
 		+ resourceDomain.substring(0, resourceDomain.length - 1).inverse + ']'.inverse
 	);
 	// Visit the website, determine its HTML and the resources it depends on.
@@ -147,27 +147,25 @@ Bundler.beginProcess = function(req, res) {
 	});
 };
 
-Bundler.mainProcess = function(req, res, process) {
-	process.resources = {};
-	process.resourceNumber = 0;
-	process.pageLoadedCutoff = false;
+Bundler.mainProcess = function(req, res, proc) {
+	proc.resources = {};
+	proc.resourceNumber = 0;
+	proc.pageLoadedCutoff = false;
 	Debundler = debundlerState;
 	Bundler.log('Initializing bundling for ' + req.query.url.green);
-	process.page.set('onResourceRequested', function(request, networkRequest) {
-		if (!process.pageLoadedCutoff) {
-			if (
-				request.url.match('^http') &&
-				request.url.match(process.resourceDomain)
-			) {
-				process.resources[process.resourceNumber] = {
+	proc.page.set('onResourceRequested', function(request, networkRequest) {
+		if (!proc.pageLoadedCutoff) {
+			if ( request.url.match('^http') &&
+					request.url.match(proc.resourceDomain)) {
+				proc.resources[proc.resourceNumber] = {
 					url: request.url
 				};
-				process.resourceNumber++;
+				proc.resourceNumber++;
 			}
 		}
 	});
-	process.page.open(req.query.url, function(status) {
-		process.pageLoadedCutoff = true;
+	proc.page.open(req.query.url, function(status) {
+		proc.pageLoadedCutoff = true;
 		if (status !== 'success') {
 			// Handle page load failure here
 			// THIS IS NOT DONE NADIM!
@@ -177,41 +175,41 @@ Bundler.mainProcess = function(req, res, process) {
 		// We've loaded the page and know what its resources are.
 		var fetchedResources = 0;
 		Bundler.log('Begin fetching resources.'.inverse);
-		for (var i in process.resources) {
-			Bundler.fetchResource(process.resources[i].url, i, function(body, rn) {
+		for (var i in proc.resources) {
+			Bundler.fetchResource(proc.resources[i].url, i, function(body, rn) {
 				fetchedResources++;
-				process.resources[rn].content = body;
-				if (fetchedResources == process.resourceNumber) {
+				proc.resources[rn].content = body;
+				if (fetchedResources == proc.resourceNumber) {
 					Bundler.log('Done fetching resources.'.inverse);
 					Bundler.log('Begin scanning resources.'.inverse);
-					process.resources = Bundler.replaceResource(process.resources);
-					Bundler.log('Encrypting bundle: '.bold + process.resources[0].url.green);
+					proc.resources = Bundler.replaceResource(proc.resources);
+					Bundler.log('Encrypting bundle: '.bold + proc.resources[0].url.green);
 					var key     = CryptoJS.enc.Hex.parse('0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a');
 					var iVector = CryptoJS.enc.Hex.parse('94949494949494949494949494949494');
 					var HMACKey = CryptoJS.enc.Hex.parse('f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7');
 					var encrypted = CryptoJS.AES.encrypt(
-						process.resources[0].content, key, {iv: iVector}
+						proc.resources[0].content, key, {iv: iVector}
 					).toString();
 					var HMAC = CryptoJS.HmacSHA256(encrypted, HMACKey).toString();
 					Debundler = Debundler
 						.replace('{{encrypted}}', encrypted)
 						.replace('{{hmac}}', HMAC);
-					Bundler.log('Serving bundle: '.bold + process.resources[0].url.green);
+					Bundler.log('Serving bundle: '.bold + proc.resources[0].url.green);
 					res.end(Debundler);
 				}
 			});
 		}
-		process.ph.exit();
+		proc.ph.exit();
 	});
 };
 
 Bundler.isSearchableFile = function(url) {
-	if (extension = url.match(/\.\w+($|\?)/)) {
-		extension = extension[0];
-		if (extension[extension.length - 1] === '?') {
-			extension = extension.substring(0, extension.length - 1);
+	if (ext = url.match(/\.\w+($|\?)/)) {
+		ext = ext[0];
+		if (ext[ext.length - 1] === '?') {
+			ext = ext.substring(0, ext.length - 1);
 		}
-		if (mime.lookup(extension).match(
+		if (mime.lookup(ext).match(
 			/(text|css|javascript|plain|json|xml|octet\-stream)/)) {
 			return true;
 		}
@@ -221,35 +219,31 @@ Bundler.isSearchableFile = function(url) {
 
 Bundler.fetchResource = function(url, resourceNumber, callback) {
 	var enc = 'Base64';
-	if (Bundler.isSearchableFile(url)) {
-		enc = 'utf8';
-	}
-	if (resourceNumber == 0) {
+	if (Bundler.isSearchableFile(url) 
+	|| resourceNumber == 0) { // why?
 		enc = 'utf8';
 	}
 	request(url, {
 			method: 'GET',
 			encoding: enc,
-			timeout: 8000
-		},
+			timeout: 8000 },
 		function(error, response, body) {
 			if (error) {
 				Bundler.log(
 					'ERROR'.red.bold + ' fetching resource'
-					+ ' ['.red + url.red + ']'.red
-				);
+					+ ' ['.red + url.red + ']'.red);
 			}
 			else {
 				Bundler.log(
 					'Fetched resource ' + resourceNumber.toString().inverse
-					+ ' ['.green + url.green + ']'.green
-				);
+					+ ' ['.green + url.green + ']'.green);
 			}
 			callback(body, resourceNumber);
 		}
 	);
 };
 
+// why is it necessary to iterate via decrement?
 Bundler.replaceResource = function(resources) {
 	var catchURI = /(^https?:\/\/|\.{0,2}\/?)((?:\w|-|@|\.|\?|\=|\&)+)/g;
 	for (var i = Object.keys(resources).length - 1; i >= 0; i--) {
@@ -262,8 +256,7 @@ Bundler.replaceResource = function(resources) {
 		}
 		Bundler.log(
 			'Scanning resource '.bold + i.toString().inverse
-			+ ' ' + '['.cyan + resources[i].url.toString().cyan + ']'.cyan
-		);
+			+ ' ' + '['.cyan + resources[i].url.toString().cyan + ']'.cyan);
 		for (var o = Object.keys(resources).length - 1; o >= 0; o--) {
 			if (resources[o].url == resources[0].url) { continue; }
 			var filename = resources[o].url.match(catchURI);
