@@ -10,6 +10,7 @@ Programmed by Nadim "*the Dream*" Kobeissi
 5. Try going to [```http://localhost:3000/?url=https://crypto.cat```](http://localhost:3000/?url=https://crypto.cat) as a test.  
 
 ## Test and build a debian package with grunt
+0. ``npm install grunt-debian-package`` https://www.npmjs.org/package/grunt-debian-package
 1. Install grunt locally: ``npm install grunt --save-dev``
 2. And all dependencies: ``npm install``
 3. Run jshint for style checks: ``grunt test``
