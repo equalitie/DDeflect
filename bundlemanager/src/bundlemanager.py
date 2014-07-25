@@ -45,7 +45,7 @@ class VedgeManager(object):
     def getVedge(self):
         #TODO read the vedge_data to figure out when we should serve
         #via a particular edge etc etc
-        return self.vedge_data.keys()
+        return self.vedge_data.keys()[0]
 
 class DebundlerServer(flask.Flask):
 
@@ -90,8 +90,8 @@ class DebundlerServer(flask.Flask):
         logging.debug("Bundle request path is %s",  path)
         if not path:
             path = "/"
-        if not path.startswith("/"):
-            raise Exception("Receieved invalid path for request to host %s: %s" % (host,path))
+        elif not path.startswith("/"):
+            path = "/" + path
 
         url = "%s%s" % (host, path)
         #TODO add to a config file per-site
@@ -103,6 +103,7 @@ class DebundlerServer(flask.Flask):
         if bundle_get.status_code > 400:
             logging.error("Failed to get bundle for %s: %s (%s)", url,
                           bundle_get.text, bundle_get.status_code)
+            flask.abort(503)
 
         bundle_content = bundle_get.text
         bundle_signature = hashlib.sha512( self.salt + bundle_content).hexdigest()
@@ -129,7 +130,10 @@ class DebundlerServer(flask.Flask):
             flask.abort(503)
         else:
             bundle = bundle_get["bundle"]
-            return bundle
+            #TODO fix this to not be a wildcard
+            resp = flask.Response(bundle, status=200)
+            resp.headers['Access-Control-Allow-Origin'] = "*"
+            return resp
 
     def rootRoute(self, path):
 
@@ -139,46 +143,47 @@ class DebundlerServer(flask.Flask):
                 logging.error("got request that started with _bundle but had no slash!")
                 flask.abort(503)
             return self.serveBundle(path.split("/")[1])
+        else:
 
-        v_edge = self.vedge_manager.getVedge()
-        key = self.debundler_maker.key
-        iv = self.debundler_maker.iv
+            v_edge = self.vedge_manager.getVedge()
+            key = self.debundler_maker.key
+            iv = self.debundler_maker.iv
 
-        if not path:
-            path = "/"
+            if not path:
+                path = "/"
 
-        #DEBUG given that we're doing a dumb example here, let's just
-        #use the first bundle we have
-        request_host = flask.request.headers.get('Host')
-        url = "%s%s" % (request_host, path)
-        logging.debug("Request is for %s", url)
+            #DEBUG given that we're doing a dumb example here, let's just
+            #use the first bundle we have
+            request_host = flask.request.headers.get('Host')
+            url = "%s%s" % (request_host, path)
+            logging.debug("Request is for %s", url)
 
-        #TODO set cookies here
-        #flask.request.cookies.get()
+            #TODO set cookies here
+            #flask.request.cookies.get()
 
-        #REALLY BAD IDEA FIX ME THIS MAKES REDIS POINTLESS DERPDERP
-        bundlehash = None
-        for storedbundlehash in self.redis.smembers("bundles"):
-            if self.redis.exists(storedbundlehash):
-                redis_data = json.loads(self.redis.get(storedbundlehash))
-                if redis_data["host"] == request_host and redis_data["path"] == path:
-                    bundlehash = storedbundlehash
-                    break
+            #REALLY BAD IDEA FIX ME THIS MAKES REDIS POINTLESS DERPDERP
+            bundlehash = None
+            for storedbundlehash in self.redis.smembers("bundles"):
+                if self.redis.exists(storedbundlehash):
+                    redis_data = json.loads(self.redis.get(storedbundlehash))
+                    if redis_data["host"] == request_host and redis_data["path"] == path:
+                        bundlehash = storedbundlehash
+                        break
 
-        if not bundlehash:
-            bundlehash = self.genBundle(request_host, path)
+            if not bundlehash:
+                bundlehash = self.genBundle(request_host, path)
 
-        if not self.redis.sismember("bundles", bundlehash) or not self.redis.exists(bundlehash):
-            raise Exception("Site not in bundles after bundling was requested!!")
+            if not self.redis.sismember("bundles", bundlehash) or not self.redis.exists(bundlehash):
+                logging.error("Site not in bundles after bundling was requested!!")
 
-        render_result = flask.render_template(
-            "debundler_template.html.j2",
-            key=unicode(key),iv=unicode(iv), v_edge=unicode(v_edge),
-            bundle_signature=bundlehash)
+            render_result = flask.render_template(
+                "debundler_template.html.j2",
+                key=unicode(key),iv=unicode(iv), v_edge=unicode(v_edge),
+                bundle_signature=bundlehash)
 
-        resp = flask.Response(render_result, status=200)
-        #response.set_cookie(
-        return resp
+            resp = flask.Response(render_result, status=200)
+            #response.set_cookie(
+            return resp
 
 class bundleManagerDaemon():
     def __init__(self, pidfile, config, stdin='/dev/stdin',
@@ -204,7 +209,7 @@ class bundleManagerDaemon():
         d = DebundlerMaker(refresh_period)
         v = VedgeManager(vedge_data)
         self.debundleServer = DebundlerServer(bundler_url, url_salt, refresh_period,
-                            d, v, template_directory=template_directory)
+                                              d, v, template_directory=template_directory)
         logging.info("Starting to serve on port %d", port)
         self.debundleServer.run(debug=True, threaded=True, port=port, use_reloader=False)
 
@@ -307,9 +312,6 @@ def createHandler(daemon,config_path):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description = 'Manage DDeflect bundle serving and retreival.')
-    parser.add_argument('command', action = 'store',
-                        choices = ('start', 'stop', 'restart'),
-                        help = 'start|stop|restart')
     parser.add_argument('-c', dest = 'config_path', action = 'store',
                         default = '/etc/bundlemanager.yaml',
                         help = 'Path to config file.')
