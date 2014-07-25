@@ -72,35 +72,39 @@ Bundler.log = function(message) {
 };
 
 http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
-  var banner = [
-'____  _   _ _   _ ____  _     _____ ____  ',
-'| __ )| | | | \\ | |  _ \\| |   | ____|  _ \\ ',
-'|  _ \\| | | |  \\| | | | | |   |  _| | |_) |',
-'| |_) | |_| | |\\  | |_| | |___| |___|  _ < ',
-'|____/ \\___/|_| \\_|____/|_____|_____|_| \\_\\']
-  banner.map(function(line) {console.log(line.rainbow.bold)});
-	console.log('');
-	Bundler.log('Ready!');
+    var banner = [
+	'____  _   _ _   _ ____  _     _____ ____  ',
+	'| __ )| | | | \\ | |  _ \\| |   | ____|  _ \\ ',
+	'|  _ \\| | | |  \\| | | | | |   |  _| | |_) |',
+	'| |_) | |_| | |\\  | |_| | |___| |___|  _ < ',
+	'|____/ \\___/|_| \\_|____/|_____|_____|_| \\_\\']
+    banner.map(function(line) {console.log(line.rainbow.bold)});
+    console.log('');
+    Bundler.log('Ready!');
+    
+    // I'm hugh and I'm a big moron, how does this async stuff work
+    // :(((
 
-fs.readFile('config.yaml', function(conf_err, conf_data) {
+    fs.readFile('config.yaml', function(conf_err, conf_data) {
 	if (conf_err) { throw conf_err }
-    yaml.safeLoadAll(conf_data, function (doc) {
-        console.log("Config data:");
-        console.log(doc);
-        configData = doc;
-    });
-})
-
-
-
+	yaml.safeLoadAll(conf_data, function (doc) {
+            console.log("Config data:");
+            console.log(doc);
+            configData = doc;
+	});
+    })
+        
     //Drop privileges if running as root
     if (process.getuid() === 0) {
-      if ("group" in configData) {
-        process.setgid(configdata["group"]);
-      }
-      if ("user" in configData) {
-          process.setuid(configdata["user"]);
-      }
+	console.log("Dropping privileges");
+	// TODO actually have these values read out of config - config
+	// is usually read AFTER this point
+	if ("group" in configData) {
+            process.setgid(configdata["group"]);
+	}
+	if ("user" in configData) {
+            process.setuid(configdata["user"]);
+	}
     }
 });
 
