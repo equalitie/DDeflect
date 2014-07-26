@@ -46,7 +46,7 @@ var Bundler = express()
 
 var Debundler = ''
 var debundlerState = ''
-fs.readFile('bundle.html', function(err, data) {
+fs.readFile('bundle.json', function(err, data) {
 	if (err) { throw err }
 	debundlerState = data.toString()
 })
