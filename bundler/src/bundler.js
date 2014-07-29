@@ -32,9 +32,11 @@ var portScanner = require('portscanner'),
 //});
 
 /*
- * Log to syslog
+ * Init logging to syslog (only when not to console anyway) 
  */
-Syslog.init("bundler", Syslog.LOG_PID | Syslog.LOG_ODELAY, Syslog.LOG_LOCAL0);
+if (process.argv[2] != '-v') {
+	Syslog.init("bundler", Syslog.LOG_PID | Syslog.LOG_ODELAY, Syslog.LOG_LOCAL0);
+}
 
 /*
  * Initialize Bundler.
@@ -59,7 +61,7 @@ Bundler.log = function(message) {
 	if (process.argv[2] == '-v') {
 		console.log('[BUNDLER] '.red.bold, message);
 	} else {
-		Syslog.log(Syslog.LOG_INFO, '[BUNDLER] '+message);
+		Syslog.log(Syslog.LOG_INFO, '[BUNDLER] '+message.stripColors);
 	}
 };
 
@@ -70,7 +72,7 @@ http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
 '|  _ \\| | | |  \\| | | | | |   |  _| | |_) |',
 '| |_) | |_| | |\\  | |_| | |___| |___|  _ < ',
 '|____/ \\___/|_| \\_|____/|_____|_____|_| \\_\\']
-  banner.map(function(l) {console.log(l.rainbow.bold)});
+  banner.map(function(line) {console.log(line.rainbow.bold)});
 	console.log('');
 	Bundler.log('Ready!');
     //Drop privileges if running as root
