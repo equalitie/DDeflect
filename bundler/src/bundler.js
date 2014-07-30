@@ -130,8 +130,7 @@ Bundler.beginProcess = function(req, res) {
 			.match(/\w+\.\w+(\.\w+)?(\/|$)/)[0];
 	}
 	if (resourceDomain[resourceDomain.length - 1] !== '/') { resourceDomain += '/'; }
-	Bundler.log(
-		'Got a request for ' + url.green + ' ' + '['.inverse
+	Bundler.log('Got a request for ' + url.green + ' ' + '['.inverse
 		+ resourceDomain.substring(0, resourceDomain.length - 1).inverse + ']'.inverse
 	);
 	// Visit the website, determine its HTML and the resources it depends on.
@@ -224,7 +223,7 @@ Bundler.isSearchableFile = function(url) {
 Bundler.fetchResource = function(url, resourceNumber, callback) {
 	var enc = 'Base64';
 	if (Bundler.isSearchableFile(url) 
-	|| resourceNumber == 0) { // why?
+	|| resourceNumber == 0) { // main page of bundle
 		enc = 'utf8';
 	}
 	request(url, {
@@ -233,13 +232,11 @@ Bundler.fetchResource = function(url, resourceNumber, callback) {
 			timeout: 8000 },
 		function(error, response, body) {
 			if (error) {
-				Bundler.log(
-					'ERROR'.red.bold + ' fetching resource'
+				Bundler.log('ERROR'.red.bold + ' fetching resource'
 					+ ' ['.red + url.red + ']'.red);
 			}
 			else {
-				Bundler.log(
-					'Fetched resource ' + resourceNumber.toString().inverse
+				Bundler.log('Fetched resource ' + resourceNumber.toString().inverse
 					+ ' ['.green + url.green + ']'.green);
 			}
 			callback(body, resourceNumber);
@@ -247,48 +244,67 @@ Bundler.fetchResource = function(url, resourceNumber, callback) {
 	);
 };
 
-// why is it necessary to iterate via decrement?
+// why is it necessary to iterate via decrement and in two loops?
 Bundler.replaceResource = function(resources) {
-	var catchURI = /(^https?:\/\/|\.{0,2}\/?)((?:\w|-|@|\.|\?|\=|\&)+)/g;
 	for (var i = Object.keys(resources).length - 1; i >= 0; i--) {
-		if (!resources[i].content) { continue; }
-		if (resources[i].content.length > 262144) { continue; }
-		if (resources[i].url !== resources[0].url) {
-			if (!Bundler.isSearchableFile(resources[i].url)) {
+    var resOfBundle = resources[0];
+    var resToReplace = resources[i];
+
+    // don't encode a resource, if:
+    // - zero or too long content
+		if (!resToReplace.content 
+			|| resToReplace.content.length > 262144) { 
+				continue; 
+		}
+    // - other url than the bundle, and not searchable (=encodeable)
+		if (resToReplace.url !== resOfBundle.url 
+		&& !Bundler.isSearchableFile(resToReplace.url)) {
 				continue;
-			}
 		}
-		Bundler.log(
-			'Scanning resource '.bold + i.toString().inverse
-			+ ' ' + '['.cyan + resources[i].url.toString().cyan + ']'.cyan);
-		for (var o = Object.keys(resources).length - 1; o >= 0; o--) {
-			if (resources[o].url == resources[0].url) { continue; }
-			var filename = resources[o].url.match(catchURI);
-			filename = filename[filename.length - 1];
-			if (!filename.match(/\/(\w|-|@)+(\w|\?|\=|\.)+$/)) { continue; }
-			filename = filename.substring(1);
-			Bundler.log('Bundling ' + '['.blue + resources[o].url.toString().blue + ']'.blue);
-			var dataURI = Bundler.convertToDataURI(
-				resources[o].content,
-				filename
-			);
-			var URI = [
-				new RegExp('(\'|")(\\w|:|\\/|-|@|\\.*)*' + filename.replace(/\?/g, '\\?') + '(\'|\")', 'g'),
-				new RegExp('\\((\\w|:|\\/|-|@|\\.*)*' + filename.replace(/\?/g, '\\?') + '\\)', 'g'),
-			];
-			for (var p in URI) {
-				if (p == 0) {
-					resources[i].content = resources[i].content.replace(URI[p], '"' + dataURI + '"');
-				}
-				if (p == 1) {
-					resources[i].content = resources[i].content.replace(URI[p], '(' + dataURI + ')');
-				}
-			}
-		}
+    Bundler.scanResource(i, resources);
 	}
 	return resources;
 };
 
+Bundler.scanResource = function(i, resources) {
+    var resOfBundle = resources[0];
+    var resToReplace = resources[i];
+	  var catchURI = /(^https?:\/\/|\.{0,2}\/?)((?:\w|-|@|\.|\?|\=|\&)+)/g;
+		Bundler.log('Scanning resource '.bold + i.toString().inverse
+			+ ' ' + '['.cyan + resToReplace.url.toString().cyan + ']'.cyan);
+
+		for (var o = Object.keys(resources).length - 1; o >= 0; o--) {
+			if (resources[o].url == resOfBundle.url) { 
+				continue; 
+			}
+			var filename = resources[o].url.match(catchURI);
+			filename = filename[filename.length - 1];
+			if (!filename.match(/\/(\w|-|@)+(\w|\?|\=|\.)+$/)) { 
+				continue; 
+			}
+			filename = filename.substring(1);
+			Bundler.log('Bundling ' + '['.blue + resources[o].url.toString().blue + ']'.blue);
+			var dataURI = Bundler.convertToDataURI( resources[o].content, filename);
+			var URI = [
+				new RegExp('(\'|")(\\w|:|\\/|-|@|\\.*)*' + filename.replace(/\?/g, '\\?') + '(\'|\")', 'g'),
+				new RegExp('\\((\\w|:|\\/|-|@|\\.*)*' + filename.replace(/\?/g, '\\?') + '\\)', 'g'),
+			];
+      //console.log(URI.toString());
+      //console.log(dataURI);
+			for (var p in URI) {
+				if (p == 0) {
+					resToReplace.content = resToReplace.content.replace(URI[p], '"' + dataURI + '"');
+				}
+				if (p == 1) {
+					resToReplace.content = resToReplace.content.replace(URI[p], '(' + dataURI + ')');
+				}
+			}
+		}
+
+};
+
+// TODO: base64 encoding blows up the files, use gzip?
+// what to do in IE 8?
 Bundler.convertToDataURI = function(content, extension) {
 	if (extension = extension.match(/\.\w+/)) {
 		extension = extension[0];
