@@ -184,7 +184,7 @@ Bundler.mainProcess = function(req, res, proc) {
 				if (fetchedResources == proc.resourceNumber) {
 					Bundler.log('Done fetching resources.'.inverse);
 					Bundler.log('Begin scanning resources.'.inverse);
-					proc.resources = Bundler.replaceResource(proc.resources);
+					proc.resources = Bundler.scanAndInlineAll(proc.resources);
 					Bundler.log('Encrypting bundle: '.bold + proc.resources[0].url.green);
 					var key     = CryptoJS.enc.Hex.parse('0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a');
 					var iVector = CryptoJS.enc.Hex.parse('94949494949494949494949494949494');
@@ -245,66 +245,61 @@ Bundler.fetchResource = function(url, resourceNumber, callback) {
 };
 
 // why is it necessary to iterate via decrement and in two loops?
-Bundler.replaceResource = function(resources) {
+// ..scan all elements of the website for replaceable resources
+Bundler.scanAndInlineAll = function(resources) {
 	for (var i = Object.keys(resources).length - 1; i >= 0; i--) {
     var resOfBundle = resources[0];
-    var resToReplace = resources[i];
+    var resToScan = resources[i];
 
     // don't encode a resource, if:
     // - zero or too long content
-		if (!resToReplace.content 
-			|| resToReplace.content.length > 262144) { 
+		if (!resToScan.content 
+			|| resToScan.content.length > 262144) { 
 				continue; 
 		}
     // - other url than the bundle, and not searchable (=encodeable)
-		if (resToReplace.url !== resOfBundle.url 
-		&& !Bundler.isSearchableFile(resToReplace.url)) {
+		if (resToScan.url !== resOfBundle.url 
+		&& !Bundler.isSearchableFile(resToScan.url)) {
 				continue;
 		}
-    Bundler.scanResource(i, resources);
+    Bundler.scanAndInline(i, resources);
 	}
 	return resources;
 };
 
-Bundler.scanResource = function(i, resources) {
-    var resOfBundle = resources[0];
-    var resToReplace = resources[i];
-	  var catchURI = /(^https?:\/\/|\.{0,2}\/?)((?:\w|-|@|\.|\?|\=|\&)+)/g;
-		Bundler.log('Scanning resource '.bold + i.toString().inverse
-			+ ' ' + '['.cyan + resToReplace.url.toString().cyan + ']'.cyan);
+// TODO the bundling (= here: replacing by data uri) happens repeatedly. 
+// could we collect data URIs so we don't do double work?
+Bundler.scanAndInline = function(i, resources) {
+  var resOfBundle = resources[0];
+  var resToScan = resources[i];
+  var catchURI = /(^https?:\/\/|\.{0,2}\/?)((?:\w|-|@|\.|\?|\=|\&)+)/g;
+	Bundler.log('Scanning resource '.bold + i.toString().inverse
+		+ ' ' + '['.cyan + resToScan.url.toString().cyan + ']'.cyan);
 
-		for (var o = Object.keys(resources).length - 1; o >= 0; o--) {
-			if (resources[o].url == resOfBundle.url) { 
-				continue; 
-			}
-			var filename = resources[o].url.match(catchURI);
-			filename = filename[filename.length - 1];
-			if (!filename.match(/\/(\w|-|@)+(\w|\?|\=|\.)+$/)) { 
-				continue; 
-			}
-			filename = filename.substring(1);
-			Bundler.log('Bundling ' + '['.blue + resources[o].url.toString().blue + ']'.blue);
-			var dataURI = Bundler.convertToDataURI( resources[o].content, filename);
-			var URI = [
-				new RegExp('(\'|")(\\w|:|\\/|-|@|\\.*)*' + filename.replace(/\?/g, '\\?') + '(\'|\")', 'g'),
-				new RegExp('\\((\\w|:|\\/|-|@|\\.*)*' + filename.replace(/\?/g, '\\?') + '\\)', 'g'),
-			];
-      //console.log(URI.toString());
-      //console.log(dataURI);
-			for (var p in URI) {
-				if (p == 0) {
-					resToReplace.content = resToReplace.content.replace(URI[p], '"' + dataURI + '"');
-				}
-				if (p == 1) {
-					resToReplace.content = resToReplace.content.replace(URI[p], '(' + dataURI + ')');
-				}
-			}
+  // replace resources by data URIs
+	for (var o = Object.keys(resources).length - 1; o >= 0; o--) {
+		if (resources[o].url == resOfBundle.url) { 
+			continue; 
 		}
-
+		var fullFilename = resources[o].url.match(catchURI);
+		fullFilename = fullFilename[fullFilename.length - 1];
+		if (!fullFilename.match(/\/(\w|-|@)+(\w|\?|\=|\.)+$/)) { 
+			continue; 
+		}
+		fullFilename = fullFilename.substring(1);
+		Bundler.log('Bundling ' + '['.blue + resources[o].url.toString().blue + ']'.blue);
+		var dataURI = Bundler.convertToDataURI( resources[o].content, fullFilename);
+		var URI = fullFilename.replace(/\?/g, '\\?'); // why?
+    // I think I fixed an error in the regexp, can somebody double check?
+		var HTML_URI = new RegExp('(\'|\")(\\w|:|\\/|-|@|\\.*)*' + URI + '(\'|\")', 'g');
+		var CSS_URI = new RegExp('\\((\\w|:|\\/|-|@|\\.*)*' + URI + '\\)', 'g');
+		resToScan.content = resToScan.content.replace(HTML_URI, '"' + dataURI + '"')
+																					.replace(CSS_URI, '(' + dataURI + ')');
+	}
 };
 
 // TODO: base64 encoding blows up the files, use gzip?
-// what to do in IE 8?
+// what to do in IE 8? It has some limit. And what in older browsers?
 Bundler.convertToDataURI = function(content, extension) {
 	if (extension = extension.match(/\.\w+/)) {
 		extension = extension[0];
