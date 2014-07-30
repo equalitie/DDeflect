@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+'use strict';
 /*
 * Load dependencies.
 */
@@ -206,6 +207,7 @@ Bundler.mainProcess = function(req, res, proc) {
 };
 
 Bundler.isSearchableFile = function(url) {
+	var ext = '';
 	if (ext = url.match(/\.\w+($|\?)/)) {
 		ext = ext[0];
 		if (ext[ext.length - 1] === '?') {
