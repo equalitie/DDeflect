@@ -278,17 +278,18 @@ Bundler.scanAndInline = function(i, resources) {
 
   // replace resources by data URIs
 	for (var o = Object.keys(resources).length - 1; o >= 0; o--) {
-		if (resources[o].url == resOfBundle.url) { 
-			continue; 
+		var resToReplace = resources[o];
+		if (resToReplace.url == resOfBundle.url) { 
+			return; 
 		}
-		var fullFilename = resources[o].url.match(catchURI);
+		var fullFilename = resToReplace.url.match(catchURI);
 		fullFilename = fullFilename[fullFilename.length - 1];
 		if (!fullFilename.match(/\/(\w|-|@)+(\w|\?|\=|\.)+$/)) { 
-			continue; 
+			return; 
 		}
 		fullFilename = fullFilename.substring(1);
-		Bundler.log('Bundling ' + '['.blue + resources[o].url.toString().blue + ']'.blue);
-		var dataURI = Bundler.convertToDataURI( resources[o].content, fullFilename);
+		Bundler.log('Bundling ' + '['.blue + resToReplace.url.toString().blue + ']'.blue);
+		var dataURI = Bundler.convertToDataURI( resToReplace.content, fullFilename);
 		var URI = fullFilename.replace(/\?/g, '\\?'); // why?
     // I think I fixed an error in the regexp, can somebody double check?
 		var HTML_URI = new RegExp('(\'|\")(\\w|:|\\/|-|@|\\.*)*' + URI + '(\'|\")', 'g');
