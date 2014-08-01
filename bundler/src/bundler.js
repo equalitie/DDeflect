@@ -47,15 +47,15 @@ var Bundler = express()
 	.use(require('body-parser')())
 	.use(require('method-override')());
 
-// initialize Debundler
-var Debundler = '';
-var debundlerState = '';
-fs.readFile('debundler.html', function(err, data) {
-	if (err) { throw err; }
-	debundlerState = data.toString();
-});
-Debundler = debundlerState;
-// TODO check if debundler.html is found, otherwise we will stare at blank pages!!
+var Debundler = ''
+var debundlerState = ''
+fs.readFile('bundle.json', function(err, data) {
+	if (err) { throw err }
+	debundlerState = data.toString()
+})
+
+Debundler = debundlerState
+>>>>>>> HMAC--Bill
 
 // print to commandline if -v
 Bundler.log = function(message) {
@@ -187,9 +187,9 @@ Bundler.mainProcess = function(req, res, proc) {
 					Bundler.log('Begin scanning resources.'.inverse);
 					proc.resources = Bundler.replaceResource(proc.resources);
 					Bundler.log('Encrypting bundle: '.bold + proc.resources[0].url.green);
-					var key     = CryptoJS.enc.Hex.parse('0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a');
-					var iVector = CryptoJS.enc.Hex.parse('94949494949494949494949494949494');
-					var HMACKey = CryptoJS.enc.Hex.parse('f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7');
+					var key     = CryptoJS.enc.Hex.parse(req.query.key)//'0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a')
+					var iVector = CryptoJS.enc.Hex.parse(req.query.iv)//'94949494949494949494949494949494')
+					var HMACKey = CryptoJS.enc.Hex.parse(req.query.hmackey)//'f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7')
 					var encrypted = CryptoJS.AES.encrypt(
 						proc.resources[0].content, key, {iv: iVector}
 					).toString();
