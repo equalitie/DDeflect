@@ -179,18 +179,13 @@ class DebundlerServer(flask.Flask):
             if not self.redis.sismember("bundles", bundlehash) or not self.redis.exists(bundlehash):
                 logging.error("Site not in bundles after bundling was requested!!")
 
-<<<<<<< HEAD
+
             render_result = flask.render_template(
-                "debundler_template.html.j2",
-                key=unicode(key),iv=unicode(iv), v_edge=unicode(v_edge),
-                bundle_signature=bundlehash)
-=======
-        render_result = flask.render_template(
-            "debundler_template.html.j2",
-            hmac_key=unicode(self.hmac_key),
-            key=unicode(key),iv=unicode(iv), v_edge=unicode(v_edge),
-            bundle_signature=bundlehash)
->>>>>>> HMAC--Bill
+            	"debundler_template.html.j2",
+            	hmac_key=unicode(self.hmac_key),
+        	key=unicode(key),iv=unicode(iv), v_edge=unicode(v_edge),
+            	bundle_signature=bundlehash)
+
 
             resp = flask.Response(render_result, status=200)
             #response.set_cookie(
