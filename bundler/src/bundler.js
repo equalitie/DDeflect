@@ -55,7 +55,7 @@ fs.readFile('bundle.json', function(err, data) {
 })
 
 Debundler = debundlerState
->>>>>>> HMAC--Bill
+
 
 // print to commandline if -v
 Bundler.log = function(message) {
