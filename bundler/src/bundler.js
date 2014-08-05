@@ -71,7 +71,7 @@ http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
 	Bundler.log('Ready!')
     //Drop privileges if running as root
     if (process.getgid() === 0) {
-      process.setgid('nobody');
+      process.setgid('nogroup');
       process.setuid('nobody');
     }
 })
