@@ -19,6 +19,7 @@
     "colors": "latest",
     "mime": "latest",
     "node-syslog": "latest",
+    "js-yaml": "latest",
     "daemonize2": "latest"
   },
   "devDependencies": {
