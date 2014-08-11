@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// -*- eval: (indent-tabs-mode t) -*-
+
 'use strict';
 /*
 * Load dependencies.
@@ -14,7 +16,8 @@ var portScanner = require('portscanner'),
 	http        = require('http'),
 	path        = require('path'),
 	fs          = require('fs'),
-  Syslog      = require('node-syslog');
+	Syslog      = require('node-syslog'),
+	yaml        = require('js-yaml');
 
 /*
  * Disable warnings.
@@ -33,7 +36,7 @@ var portScanner = require('portscanner'),
 //});
 
 /*
- * Init logging to syslog (only when not to console anyway) 
+ * Init logging to syslog (only when not to console anyway)
  */
 if (process.argv[2] != '-v') {
 	Syslog.init("bundler", Syslog.LOG_PID | Syslog.LOG_ODELAY, Syslog.LOG_LOCAL0);
@@ -53,6 +56,8 @@ fs.readFile('bundle.json', function(err, data) {
 	if (err) { throw err }
 	debundlerState = data.toString()
 })
+
+var configData = {};
 
 Debundler = debundlerState
 
@@ -76,10 +81,26 @@ http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
   banner.map(function(line) {console.log(line.rainbow.bold)});
 	console.log('');
 	Bundler.log('Ready!');
+
+fs.readFile('config.yaml', function(conf_err, conf_data) {
+	if (conf_err) { throw conf_err }
+    yaml.safeLoadAll(conf_data, function (doc) {
+        console.log("Config data:");
+        console.log(doc);
+        configData = doc;
+    });
+})
+
+
+
     //Drop privileges if running as root
-    if (process.getgid() === 0) {
-      process.setgid('nogroup');
-      process.setuid('nobody');
+    if (process.getuid() === 0) {
+      if ("group" in configData) {
+        process.setgid(configdata["group"]);
+      }
+      if ("user" in configData) {
+          process.setuid(configdata["user"]);
+      }
     }
 });
 
@@ -223,7 +244,7 @@ Bundler.isSearchableFile = function(url) {
 
 Bundler.fetchResource = function(url, resourceNumber, callback) {
 	var enc = 'Base64';
-	if (Bundler.isSearchableFile(url) 
+	if (Bundler.isSearchableFile(url)
 	|| resourceNumber == 0) { // why?
 		enc = 'utf8';
 	}
