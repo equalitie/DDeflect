@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// -*- eval: (indent-tabs-mode t) -*-
+
 'use strict';
 /*
 * Load dependencies.
@@ -14,7 +16,8 @@ var portScanner = require('portscanner'),
 	http        = require('http'),
 	path        = require('path'),
 	fs          = require('fs'),
-  Syslog      = require('node-syslog');
+	Syslog      = require('node-syslog'),
+	yaml        = require('js-yaml');
 
 /*
  * Disable warnings.
@@ -33,7 +36,7 @@ var portScanner = require('portscanner'),
 //});
 
 /*
- * Init logging to syslog (only when not to console anyway) 
+ * Init logging to syslog (only when not to console anyway)
  */
 if (process.argv[2] != '-v') {
 	Syslog.init("bundler", Syslog.LOG_PID | Syslog.LOG_ODELAY, Syslog.LOG_LOCAL0);
@@ -53,8 +56,19 @@ fs.readFile('bundle.json', function(err, data) {
 	if (err) { throw err }
 	debundlerState = data.toString()
 })
-
 Debundler = debundlerState
+
+// lol javascript 
+var configData = {};
+var configThing = {};
+try { 
+    var yamlfile = fs.readFileSync('config.yaml');
+    configThing = yaml.safeLoad(yamlfile.toString());
+} catch (err) {
+    console.error("Error when loading config file: " + err);
+}
+configData = configThing;
+
 
 
 // print to commandline if -v
@@ -67,19 +81,29 @@ Bundler.log = function(message) {
 };
 
 http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
-  var banner = [
-'____  _   _ _   _ ____  _     _____ ____  ',
-'| __ )| | | | \\ | |  _ \\| |   | ____|  _ \\ ',
-'|  _ \\| | | |  \\| | | | | |   |  _| | |_) |',
-'| |_) | |_| | |\\  | |_| | |___| |___|  _ < ',
-'|____/ \\___/|_| \\_|____/|_____|_____|_| \\_\\']
-  banner.map(function(line) {console.log(line.rainbow.bold)});
-	console.log('');
-	Bundler.log('Ready!');
+    var banner = [
+	'____  _   _ _   _ ____  _     _____ ____  ',
+	'| __ )| | | | \\ | |  _ \\| |   | ____|  _ \\ ',
+	'|  _ \\| | | |  \\| | | | | |   |  _| | |_) |',
+	'| |_) | |_| | |\\  | |_| | |___| |___|  _ < ',
+	'|____/ \\___/|_| \\_|____/|_____|_____|_| \\_\\']
+    banner.map(function(line) {console.log(line.rainbow.bold)});
+    console.log('');
+    Bundler.log('Ready!');
+          
     //Drop privileges if running as root
-    if (process.getgid() === 0) {
-      process.setgid('nobody');
-      process.setuid('nobody');
+    if (process.getuid() === 0) {
+	console.log("Dropping privileges");
+	// TODO actually have these values read out of config - config
+	// is usually read AFTER this point
+	if ("group" in configData) {
+	    console.log("Dropping group to " + configData["group"]);
+            process.setgid(configData["group"]);
+	}
+	if ("user" in configData) {
+	    console.log("Dropping user to " + configData["user"]);
+            process.setuid(configData["user"]);
+	}
     }
 });
 
@@ -223,7 +247,7 @@ Bundler.isSearchableFile = function(url) {
 
 Bundler.fetchResource = function(url, resourceNumber, callback) {
 	var enc = 'Base64';
-	if (Bundler.isSearchableFile(url) 
+	if (Bundler.isSearchableFile(url)
 	|| resourceNumber == 0) { // why?
 		enc = 'utf8';
 	}
