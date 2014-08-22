@@ -11,16 +11,28 @@
 - name: set up ATS service
   service: name=trafficserver state=started enabled=yes
 
+- name: chown ATS directory
+  file: path=/etc/trafficserver owner={{ trafficserver_user }} group={{ trafficserver_group }}
+
 - name: records config
-  template: src=records.config.j2 dest=/etc/trafficserver/records.config owner=root group=root
+  template: src=records.6.config.j2 dest=/etc/trafficserver/records.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
   tags: ats
 
 - name: logging config
-  template: src=logs_xml.config.j2 dest=/etc/trafficserver/logs_xml.config owner=root group=root
+  template: src=logs_xml.config.j2 dest=/etc/trafficserver/logs_xml.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
   tags: ats
 
-- name: remap config
-  template: src=remap.conf.j2 dest=/etc/trafficserver/remap.config owner=root group=root
+- name: remap dir
+  file: state=directory path=/etc/trafficserver/remap.d/ owner={{trafficserver_user}} group={{trafficserver_group}}
+  tags: ats
+
+- name: general remap config
+  template: src=remap.conf.ddeflect.j2 dest=/etc/trafficserver/remap.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
+  tags: ats
+
+- name: remap config per-site
+  template: src=remap.d.ddeflect.j2 dest=/etc/trafficserver/remap.d/{{item.key}}.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
+  with_dict: remap
   notify:
     - restart ats
   tags: ats
