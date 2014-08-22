@@ -7,14 +7,14 @@
     - redis-server
 
 - name: Set up bundlemanager tmpdir
-  file: ensure=directory path=/var/run/bundlemanager/ owner=nobody group=nobody
+  file: state=directory path=/var/run/bundlemanager/ owner=nobody group=nogroup
 
 - name: Ensure redis is running and enabled
   service: name=redis-server state=running enabled=yes
 
-- name: Ensure bundlemanager is running and enabled
-  service: name=bundlemanager state=running enabled=yes
-
 - name: Configure bundlemanager
   template: src=bundlemanager.yaml.j2 dest=/etc/bundlemanager.yaml
   notify: reload bundlemanager
+
+- name: Ensure bundlemanager is running and enabled
+  service: name=bundlemanager state=running enabled=yes
