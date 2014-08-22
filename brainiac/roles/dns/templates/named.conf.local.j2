@@ -1,0 +1,17 @@
+//
+// Do any local configuration here
+//
+
+// Consider adding the 1918 zones here, if they are not used in your
+// organization
+//include "/etc/bind/zones.rfc1918";
+
+{% for domain, attributes in remap.iteritems() %}
+{% if attributes["live"] %}
+zone "{{ domain }}" {
+	type master;
+	file "{{ domain }}.zone";
+	also-notify { {{dns_primary}}; };
+};
+{% endif %}
+{% endfor %}
