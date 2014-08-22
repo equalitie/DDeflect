@@ -1,0 +1,7 @@
+{% for site, attributes in remap.iteritems() %}
+{% if attributes["https"] %}
+ssl_cert_name={{site}}.crt ssl_key_name={{site}}.key ssl_ca_name={{site}}.ca.crt
+{% endif %}
+{% endfor %}
+
+dest_ip=* ssl_cert_name=deflect.ca.crt ssl_key_name=deflect.ca.key ssl_ca_name=deflect.ca.CA.crt
