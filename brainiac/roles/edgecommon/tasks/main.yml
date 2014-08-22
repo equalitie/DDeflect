@@ -22,5 +22,8 @@
 - name: Set hostname
   hostname: name={{ inventory_hostname }}
 
+- name: Add DDeflect apt signing key
+  apt_key: url=https://users.deflect.ca/ddeflect_signing.key state=present
+
 - name: Ensure the Deflect apt repository is added
   apt_repository: state=present repo='deb http://users.deflect.ca/repo/ wheezy main'
