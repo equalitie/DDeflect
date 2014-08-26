@@ -35,11 +35,12 @@ class DebundlerMaker(object):
         keybytes = os.urandom(16)
         ivbytes = os.urandom(16)
         hmackeybytes = os.urandom(16)
-        if self.key and self.iv:
+        if self.key and self.iv and self.hmac_key:
             self.logger.info("Rotating keys. Old key was %s, old hmac key was %s and old IV was %s", self.key, self.iv, self.hmac_key)
-	    self.hmac_key = keybytes.encode('hex')
-            self.key = keybytes.encode("hex")
-            self.iv = ivbytes.encode("hex")
+
+        self.hmac_key = keybytes.encode('hex')
+        self.key = keybytes.encode("hex")
+        self.iv = ivbytes.encode("hex")
 
 class VedgeManager(object):
     def __init__(self, vedge_data):
