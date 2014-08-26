@@ -58,10 +58,10 @@ fs.readFile('bundle.json', function(err, data) {
 })
 Debundler = debundlerState
 
-// lol javascript 
+// lol javascript
 var configData = {};
 var configThing = {};
-try { 
+try {
     var yamlfile = fs.readFileSync('config.yaml');
     configThing = yaml.safeLoad(yamlfile.toString());
 } catch (err) {
@@ -69,7 +69,17 @@ try {
 }
 configData = configThing;
 
+var listenport = 3000;
+var listenip = "127.0.0.1";
 
+if ("listen" in configData) {
+    if ("host" in configData) {
+        listenip = configdata["listen"]["host"];
+    }
+    if ("port" in configData) {
+        listenport = configData["listen"]["port"];
+    }
+}
 
 // print to commandline if -v
 Bundler.log = function(message) {
@@ -80,7 +90,11 @@ Bundler.log = function(message) {
 	}
 };
 
-http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
+// phantomjs shits itself if it can't find the actual program for
+// phantomjs in the path. Jerk.
+process.env.PATH = process.env.PATH + ":../node_modules/phantomjs/bin";
+
+http.createServer(Bundler).listen(listenport, listenip, function() {
     var banner = [
 	'____  _   _ _   _ ____  _     _____ ____  ',
 	'| __ )| | | | \\ | |  _ \\| |   | ____|  _ \\ ',
@@ -90,7 +104,7 @@ http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
     banner.map(function(line) {console.log(line.rainbow.bold)});
     console.log('');
     Bundler.log('Ready!');
-          
+
     //Drop privileges if running as root
     if (process.getuid() === 0) {
 	console.log("Dropping privileges");
@@ -194,8 +208,7 @@ Bundler.mainProcess = function(req, res, proc) {
 	proc.page.open(req.query.url, function(status) {
 		proc.pageLoadedCutoff = true;
 		if (status !== 'success') {
-			// Handle page load failure here
-			// THIS IS NOT DONE NADIM!
+                    //TODO https://redmine.equalit.ie/redmine/issues/324
 			Bundler.log('Abort'.red.bold + ': ' + status);
 			return false;
 		}
@@ -211,9 +224,10 @@ Bundler.mainProcess = function(req, res, proc) {
 					Bundler.log('Begin scanning resources.'.inverse);
 					proc.resources = Bundler.replaceResource(proc.resources);
 					Bundler.log('Encrypting bundle: '.bold + proc.resources[0].url.green);
-					var key     = CryptoJS.enc.Hex.parse(req.query.key)//'0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a')
-					var iVector = CryptoJS.enc.Hex.parse(req.query.iv)//'94949494949494949494949494949494')
-					var HMACKey = CryptoJS.enc.Hex.parse(req.query.hmackey)//'f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7')
+					var key     = CryptoJS.enc.Hex.parse(req.query.key)
+					var iVector = CryptoJS.enc.Hex.parse(req.query.iv)
+					var HMACKey = CryptoJS.enc.Hex.parse(req.query.hmackey)
+
 					var encrypted = CryptoJS.AES.encrypt(
 						proc.resources[0].content, key, {iv: iVector}
 					).toString();
