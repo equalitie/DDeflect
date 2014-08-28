@@ -29,15 +29,33 @@ class BundleMaker(object):
             '\/(\w|-|@)+(\w|\?|\=|\.)+$'
         )
         self.reGetExtOnly = re.compile('\.\w+')
+        self.reGetDomain1 = re.compile('^https?:\/\/(\w|\.)+(\/|$)')
+        self.reGetDomain2 = re.compile('\w+\.\w+(\.\w+)?(\/|$)')
 
     def createURLBundle(self):
-        
+        resources = {}
+        resourceNumber = 0
+        pageLoadCutoff = false
+        resourceDomain = None
+        if 'http' not in self.url:
+            #this is an issue to discuss with nosmo
+            return
+        else:
+            if not self.url:
+                return
+            resourceDomain = self.reGetDomain1.search(
+                                self.reGetDomain2.search(self.url)...
+                            )
+           
+            
+            
+
     def fetchResources(self):
  	enc = 'Base64';
-	if (Bundler.isSearchableFile(url) 
-	|| resourceNumber == 0) { // why?
-		enc = 'utf8';
-	}
+	if Bundler.isSearchableFile(url)
+	    or resourceNumber == 0): 
+	    enc = 'utf8'
+	#make request
 	request(url, {
 			method: 'GET',
 			encoding: enc,
