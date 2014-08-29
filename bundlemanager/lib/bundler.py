@@ -5,7 +5,8 @@ import ipdb
 """
 Python modules
 """
-
+import hmac
+import hashlib
 import mimetypes
 import re
 import base64
@@ -75,28 +76,24 @@ class BundleMaker(object):
         logging.info('Bundle encrypted')
         hmac_sig = self.signBundle(bundle)
         logging.info('Bundle signed - and now they know when in memory to look :(')
-
-        return [
-            {
-                "bundle": bundle,
-                "hmac_sig": hmac_sig
-            }
-        ]
-                    
+        return {
+            "bundle": bundle,
+            "hmac_sig": hmac_sig
+        }
+                            
 
     def signBundle(self,bundle):
         return hmac.new(
-                    self.hmackey.encode("hex"), 
+                    self.hmackey, 
                     bundle, 
-                    hashlib.sha256).digest(
-                )
+                    hashlib.sha256
+                ).digest()
 
     def encryptBundle(self, content):
-        ipdb.set_trace()
         aes = AES.new(
-                        self.key.encode("hex"), 
+                        self.key, 
                         AES.MODE_CFB, 
-                        self.iv.encode("hex")
+                        self.iv
                     )
         return aes.encrypt(content)
 
