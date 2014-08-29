@@ -41,9 +41,12 @@ class TestBundlerLib(unittest.TestCase):
         testResources = [
             testResp1
         ]
-        resource = self.bundleMaker.fetchResources(testResources)
-        self.assertEqual(True, resource.ok)
-        self.assertEqual(testResp1.url, resource.url)
+        testResourceDomain = 'deflect.ca/'
+        resources = self.bundleMaker.fetchResources(
+                                            testResources,
+                                            testResourceDomain
+                                    )
+        self.assertEqual(testResp1.url, resources[0]['url'])
 
     def testIsSearchableFile(self):
         testFilename = "test.css"
