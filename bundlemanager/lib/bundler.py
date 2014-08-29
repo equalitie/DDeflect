@@ -70,7 +70,6 @@ class BundleMaker(object):
         logging.info('Resources Collected')
 
         resources = self.replaceResources(resources)
-        ipdb.set_trace()
         logging.info('Resources replaced')
         bundle = self.encryptBundle(resources[0]['content'])
         logging.info('Bundle encrypted')
@@ -86,10 +85,19 @@ class BundleMaker(object):
                     
 
     def signBundle(self,bundle):
-        return hmac.new(self.hmackey, bundle, hashlib.sha256).digest()
+        return hmac.new(
+                    self.hmackey.encode("hex"), 
+                    bundle, 
+                    hashlib.sha256).digest(
+                )
 
     def encryptBundle(self, content):
-        aes = AES.new(self.key, AES.MODE_CFB, self.iv)
+        ipdb.set_trace()
+        aes = AES.new(
+                        self.key.encode("hex"), 
+                        AES.MODE_CFB, 
+                        self.iv.encode("hex")
+                    )
         return aes.encrypt(content)
 
     def fetchResources(self, resources, resourceDomain):
@@ -99,7 +107,7 @@ class BundleMaker(object):
             #This is not very intelligent, as it heavily restricts using
             #your own CDN for example
             if 'http' in r.url and resourceDomain in r.url:
-                enc = 'Base64';
+                enc = 'base64';
                 if self.isSearchableFile(str(r.url)) or r.url == resources[0].url: 
                     enc = 'utf8'
                 resourcePage = requests.get(
@@ -107,7 +115,6 @@ class BundleMaker(object):
                     timeout=8
                 )
                 resourcePage.encoding = enc
-
                 if resourcePage.status_code == requests.codes.ok:
                     logging.info('Get resource: %s', str(r.url))
                     new_resources.append(
@@ -170,17 +177,12 @@ class BundleMaker(object):
                     '\((\w|:|\/|-|@|\.*)*' + filename + '\)'
                 )
 
-                logging.info('Resource Content: [%s]', r['content'])
-                ipdb.set_trace()
-                #here lies a god awful bug
                 r['content'] = resourcePattern1.sub(
                     '"' + dataURI + '"', r['content']
                 )
-                logging.info('Resource Content Transform 1: [%s]', r['content'])
                 r['content'] = resourcePattern2.sub(
                     '(' + dataURI + ')', r['content']
                 )
-                logging.info('Resource Content Transform 2: [%s]', r['content'])
         return resources
 
     def convertToDataUri(self, content, extension):
@@ -193,8 +195,6 @@ class BundleMaker(object):
         dataURI = 'data:' + mimetypes.types_map[extension] + ';base64,'
         if self.isSearchableFile(extension):
             dataURI =  dataURI + base64.b64encode(content)
-        else:
-            dataURI = dataURI + content
 	
         return dataURI
 
