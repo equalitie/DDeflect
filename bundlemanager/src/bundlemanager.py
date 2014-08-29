@@ -20,6 +20,8 @@ import threading
 import logging
 import logging.handlers
 
+from bundlemanager.lib.bundler import BundleMaker
+
 class DebundlerMaker(object):
 
     def __init__(self, refresh_period):
@@ -73,6 +75,7 @@ class DebundlerServer(flask.Flask):
         self.route("/_bundle/")(self.serveBundle)
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
+        self.bundleMaker = BundleMaker()
 
     def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
@@ -89,27 +92,27 @@ class DebundlerServer(flask.Flask):
             del(self.bundles[url])
         return len(delete_list)
 
-    def genBundle(self, host, path):
-        bundle_s = requests.Session()
-        logging.debug("Bundle request path is %s",  path)
-        if not path:
-            path = "/"
-        elif not path.startswith("/"):
-            path = "/" + path
+    def genBundle(self, url, key, iv, hmac_key):
+        logging.debug("Bundle request url is %s",  url)
+        bundler_result = bundleMaker.createBundle( url,
+                                                key,
+                                                iv,
+                                                hmac_key
+                                            )
 
-        url = "%s%s" % (host, path)
-        #TODO add to a config file per-site
-        url_scheme = "http://"
-
-        bundle_s.headers.update({"Host": host})
-        bundle_get = bundle_s.get(self.bundler_url + "%s%s" % (url_scheme, url))
-
-        if bundle_get.status_code > 400:
-            logging.error("Failed to get bundle for %s: %s (%s)", url,
-                          bundle_get.text, bundle_get.status_code)
+        if not bundler_result:
+            logging.error("Failed to get bundle for %s: %s (%s)", url)
             flask.abort(503)
+       
+        #Not 1 thousand percent sure this is the same as what you
+        # are currently saving so needs to be rechecked
+        rendered_bundle = flask.render_template(
+                            "bundle.json",
+                            encrypted = bundler_result['content'],
+                            hmac = bundler_result['hmac_sig']
+                            )
 
-        bundle_content = bundle_get.text
+        bundle_content = rendered_bundle
         bundle_signature = hashlib.sha512( self.salt + bundle_content).hexdigest()
 
         self.redis.sadd("bundles", bundle_signature)
@@ -175,7 +178,7 @@ class DebundlerServer(flask.Flask):
                         break
 
             if not bundlehash:
-                bundlehash = self.genBundle(request_host, path)
+                bundlehash = self.genBundle(flask.request.url, key, iv, hmac_key)
 
             if not self.redis.sismember("bundles", bundlehash) or not self.redis.exists(bundlehash):
                 logging.error("Site not in bundles after bundling was requested!!")

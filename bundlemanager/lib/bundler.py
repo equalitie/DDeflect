@@ -1,143 +1,199 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import ipdb
+"""
+Python modules
+"""
+
 import mimetypes
 import re
+import base64
+import logging
 
+"""
+Third party modules
+"""
+import requests
+from ghost import Ghost
+from Crypto.Cipher import AES
 """
 need to compile all regexes
 """
 
 class BundleMaker(object):
-    def __init__(self, url, key, iv, hmackey):
-        self.url = url
+    reGetExt = re.compile(r'\.\w+($|\?)')
+    reMatchMime = re.compile(
+        '(text|css|javascript|plain|json|xml|octet\-stream)'
+    )
+    reCatchUri = re.compile(
+        '(^https?:\/\/|\.{0,2}\/?)((?:\w|-|@|\.|\?|\=|\&)+)'
+    )
+    reTestForFile = re.compile(
+        '\/(\w|-|@)+(\w|\?|\=|\.)+$'
+    )
+    reGetExtOnly = re.compile('\.\w+')
+    reGetDomain1 = re.compile('^https?:\/\/(\w|\.)+(\/|$)')
+    reGetDomain2 = re.compile('\w+\.\w+(\.\w+)?(\/|$)')
+
+    def __init__(self):
+        self.key = None
+        self.iv = None
+        self.hmackey = None
+       
+        self.ghost = Ghost()
+
+    def createBundle(self, url, key, iv, hmackey):
         self.key = key
         self.iv = iv
         self.hmackey = hmackey
-        """
-        For fun let's compile a bunch of regex
-        that we know we're going to use
-        """
-        self.reGetExt = re.compile(r'\.\w+($|\?)')
-        self.reMatchMime = re.compile(
-            '(text|css|javascript|plain|json|xml|octet\-stream)'
-        )
-        self.reCatchUri = re.compile(
-            '(^https?:\/\/|\.{0,2}\/?)((?:\w|-|@|\.|\?|\=|\&)+)'
-        )
-        self.reTestForFile = re.compile(
-            '\/(\w|-|@)+(\w|\?|\=|\.)+$'
-        )
-        self.reGetExtOnly = re.compile('\.\w+')
-        self.reGetDomain1 = re.compile('^https?:\/\/(\w|\.)+(\/|$)')
-        self.reGetDomain2 = re.compile('\w+\.\w+(\.\w+)?(\/|$)')
 
-    def createURLBundle(self):
-        resources = {}
-        resourceNumber = 0
-        pageLoadCutoff = false
+        resources = []
+        #pageLoadCutoff = false
         resourceDomain = None
-        if 'http' not in self.url:
+        if 'http' not in url:
             #this is an issue to discuss with nosmo
-            return
+            return None
         else:
-            if not self.url:
-                return
-            resourceDomain = self.reGetDomain1.search(
-                                self.reGetDomain2.search(self.url)...
-                            )
-           
+            if not url:
+                return None
+            resourceDomain = BundleMaker.reGetDomain2.search(
+                                BundleMaker.reGetDomain1.search(url).group()
+                            ).group()
+        if resourceDomain[:-1] != '/':
+            resourceDomain = resourceDomain + '/'
             
-            
+        page, ext_resources = self.ghost.open(url)
+        
+        resources = self.fetchResources(ext_resources, resourceDomain)
 
-    def fetchResources(self):
- 	enc = 'Base64';
-	if Bundler.isSearchableFile(url)
-	    or resourceNumber == 0): 
-	    enc = 'utf8'
-	#make request
-	request(url, {
-			method: 'GET',
-			encoding: enc,
-			timeout: 8000 },
-		function(error, response, body) {
-			if (error) {
-				Bundler.log(
-					'ERROR'.red.bold + ' fetching resource'
-					+ ' ['.red + url.red + ']'.red);
-			}
-			else {
-				Bundler.log(
-					'Fetched resource ' + resourceNumber.toString().inverse
-					+ ' ['.green + url.green + ']'.green);
-			}
-			callback(body, resourceNumber);
-		}
-	);
+        logging.info('Resources Collected')
+
+        resources = self.replaceResources(resources)
+        ipdb.set_trace()
+        logging.info('Resources replaced')
+        bundle = self.encryptBundle(resources[0]['content'])
+        logging.info('Bundle encrypted')
+        hmac_sig = self.signBundle(bundle)
+        logging.info('Bundle signed - and now they know when in memory to look :(')
+
+        return [
+            {
+                "bundle": bundle,
+                "hmac_sig": hmac_sig
+            }
+        ]
+                    
+
+    def signBundle(self,bundle):
+        return hmac.new(self.hmackey, bundle, hashlib.sha256).digest()
+
+    def encryptBundle(self, content):
+        aes = AES.new(self.key, AES.MODE_CFB, self.iv)
+        return aes.encrypt(content)
+
+    def fetchResources(self, resources, resourceDomain):
+        new_resources = []
+
+        for r in resources:
+            #This is not very intelligent, as it heavily restricts using
+            #your own CDN for example
+            if 'http' in r.url and resourceDomain in r.url:
+                enc = 'Base64';
+                if self.isSearchableFile(str(r.url)) or r.url == resources[0].url: 
+                    enc = 'utf8'
+                resourcePage = requests.get(
+                    str(r.url),
+                    timeout=8
+                )
+                resourcePage.encoding = enc
+
+                if resourcePage.status_code == requests.codes.ok:
+                    logging.info('Get resource: %s', str(r.url))
+                    new_resources.append(
+                        { 
+                            "content": resourcePage.content,
+                            "url": resourcePage.url
+                        }
+                    )
+                else:
+                    logging.error('Failed to get resource: %s',str(r.url))
+                    #log error, son
+                    return ''
+        return new_resources
 
     def isSearchableFile(self, url):
-        ext = self.reGetExt.search(url)
+
+        ext = BundleMaker.reGetExt.search(url)
         if ext:
 	    ext = ext.group()
-	    if ext[len(ext) - 1] == '?':
+	    if ext[-1] == '?':
 	        ext = ext[:-1];
-	    if self.reMatchMime.search(
+	    if BundleMaker.reMatchMime.search(
                  mimetypes.types_map[ext]
             ): 
-	        return true
-	return false
+	        return True
+	return False
 
-    def replaceResource(self, resources):
-	for i = Object.keys(resources).length - 1; i >= 0; i--:
-	    if !resources[i].content: continue
-	    if resources[i].content.length > 262144: continue
-	    if resources[i].url !== resources[0].url:
-	        if !Bundler.isSearchableFile(resources[i].url:
-		    continue
-                """
-		Bundler.log(
-			'Scanning resource '.bold + i.toString().inverse
-			+ ' ' + '['.cyan + resources[i].url.toString().cyan + ']'.cyan);
-                """
-            for (var o = Object.keys(resources).length - 1; o >= 0; o--) {
-	        if resources[o].url == resources[0].url: continue
+    def replaceResources(self, resources):
 
-		filename = self.reCatchUri.findall(resources[o].url)
-		filename = filename[1][0] + filename[1][1]
+        for r in reversed(resources):
+            if not r['content']: 
+                continue
+            if len( r['content'] ) > 262144: 
+                continue
+            if r['url'] != resources[0]['url']:
+                if not self.isSearchableFile(r['url']):
+                    continue
+            logging.info('Scanning resource: [%s] ', r['url'])
+            for j in reversed(resources): 
+                if j['url'] == resources[0]['url']: 
+                    continue
+                filename = BundleMaker.reCatchUri.findall(j['url'])
+                filename = filename[1][0] + filename[1][1]
 
-		if !self.reTestForFile.search(filename): continue
+                if not BundleMaker.reTestForFile.search(filename): continue
 
-		filename = filename[1:]
-		"""i
-                got to here
-                Bundler.log('Bundling ' + '['.blue + resources[o].url.toString().blue + ']'.blue);
-                """
-		dataURI = self.convertToDataURI(
-		    resources[o].content,
-		    filename
-		)
-		var URI = [
-		    new RegExp('(\'|")(\\w|:|\\/|-|@|\\.*)*' + filename.replace(/\?/g, '\\?') + '(\'|\")', 'g'),
-	            new RegExp('\\((\\w|:|\\/|-|@|\\.*)*' + filename.replace(/\?/g, '\\?') + '\\)', 'g'),
-		];
-		for p in URI:
-		    if p == 0:
-		        resources[i].content = resources[i].content.replace(URI[p], '"' + dataURI + '"')
-		    if p == 1:
-		        resources[i].content = resources[i].content.replace(URI[p], '(' + dataURI + ')')
-	return resources
+                filename = filename[1:]
+                
+                logging.info('Bundling resource: [%s]', j['url'])
+
+                dataURI = self.convertToDataUri(
+                    j['content'],
+                    filename
+                )
+                filename = filename.replace('?', '\?')
+                resourcePattern1 = re.compile(
+                    '(\'|")(\w|:|\/|-|@|\.*)*' + filename + '(\'|\")'
+                )
+                resourcePattern2 = re.compile(
+                    '\((\w|:|\/|-|@|\.*)*' + filename + '\)'
+                )
+
+                logging.info('Resource Content: [%s]', r['content'])
+                ipdb.set_trace()
+                r['content'] = resourcePattern1.sub(
+                    '"' + dataURI + '"', r['content']
+                )
+                logging.info('Resource Content Transform 1: [%s]', r['content'])
+                r['content'] = resourcePattern2.sub(
+                    '(' + dataURI + ')', r['content']
+                )
+                logging.info('Resource Content Transform 2: [%s]', r['content'])
+        return resources
 
     def convertToDataUri(self, content, extension):
-        if extension = self.reGetExtiOnly.search(extension):
+        extension = BundleMaker.reGetExtOnly.search(extension)
+        if extension:
             extension = extension.group(0)
-	else:
+        else:
             extension = '.html'
 
-	dataURI = 'data:' + mimetypes.types_map[extension] + ';base64,'
-	if Bundler.isSearchableFile(extension):
-	    dataURI += new Buffer(content).toString('base64')
-	else:
-	    dataURI += content
+        dataURI = 'data:' + mimetypes.types_map[extension] + ';base64,'
+        if self.isSearchableFile(extension):
+            dataURI =  dataURI + base64.b64encode(content)
+        else:
+            dataURI = dataURI + content
 	
-	return dataURI
+        return dataURI
 

@@ -1,0 +1,8 @@
+flask
+pycrypto
+requests
+nose
+ghost.py
+redis
+pyyaml
+jinja2
