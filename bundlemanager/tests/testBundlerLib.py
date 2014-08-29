@@ -32,7 +32,7 @@ class TestBundlerLib(unittest.TestCase):
                                     self.testIV,
                                     self.testHmacKey
                                     )
-        expected_sig = '0\x90Q\x8f\x1b\x1a\xc8\xd9\xefHV\x0e\xd4\xe6\x13HW\xb6\x15.\xbe\x9a\xda\x91)^\xe9J\xdc\xb1\xbd\n'
+        expected_sig = '\xd4\xc3CB\xb9hV\x7f\x003U,|\xa2+j\x1e\x01\xd9\x1c\x0c\xfbJ\x15\xae?2\xe86\xeb+\x08'                                    
         self.assertEqual(result['hmac_sig'], expected_sig)
 
     def testFetchResources(self):
