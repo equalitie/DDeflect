@@ -172,6 +172,7 @@ class BundleMaker(object):
 
                 logging.info('Resource Content: [%s]', r['content'])
                 ipdb.set_trace()
+                #here lies a god awful bug
                 r['content'] = resourcePattern1.sub(
                     '"' + dataURI + '"', r['content']
                 )
