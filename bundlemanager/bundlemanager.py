@@ -20,7 +20,7 @@ import threading
 import logging
 import logging.handlers
 
-from bundlemanager.lib.bundler import BundleMaker
+from lib.bundler import BundleMaker
 
 class DebundlerMaker(object):
 
@@ -54,7 +54,7 @@ class VedgeManager(object):
 
 class DebundlerServer(flask.Flask):
 
-    def __init__(self, bundler_url, salt, refresh_period,
+    def __init__(self, salt, refresh_period,
                  debundler_maker, vedge_manager, template_directory=""):
         super(DebundlerServer, self).__init__("DebundlerServer")
         if template_directory:
@@ -63,7 +63,6 @@ class DebundlerServer(flask.Flask):
         self.vedge_manager = vedge_manager
         self.bundles = collections.defaultdict(dict)
 
-        self.bundler_url = bundler_url
         self.salt = salt
         self.refresh_period = refresh_period
 
@@ -93,7 +92,7 @@ class DebundlerServer(flask.Flask):
 
     def genBundle(self, url, key, iv, hmac_key):
         logging.debug("Bundle request url is %s",  url)
-        bundler_result = bundleMaker.createBundle( url,
+        bundler_result = self.bundleMaker.createBundle( url,
                                                 key,
                                                 iv,
                                                 hmac_key
@@ -102,6 +101,7 @@ class DebundlerServer(flask.Flask):
         if not bundler_result:
             logging.error("Failed to get bundle for %s: %s (%s)", url)
             flask.abort(503)
+        logging.debug("Bundle constructed and returned")
        
         #Not 1 thousand percent sure this is the same as what you
         # are currently saving so needs to be rechecked
@@ -162,7 +162,7 @@ class DebundlerServer(flask.Flask):
             request_host = flask.request.headers.get('Host')
             url = request_host.format(path, key, iv, hmac_key)
 
-            self.logging.debug("Request is for %s", url)
+            logging.debug("Request is for %s", url)
 
             #TODO set cookies here
             #flask.request.cookies.get()
@@ -171,18 +171,22 @@ class DebundlerServer(flask.Flask):
             bundlehash = None
             for storedbundlehash in self.redis.smembers("bundles"):
                 if self.redis.exists(storedbundlehash):
+                    logging.debug("Found bundle in redis")
                     redis_data = json.loads(self.redis.get(storedbundlehash))
                     if redis_data["host"] == request_host and redis_data["path"] == path:
+                        logging.debug("Bundle matches current request")
                         bundlehash = storedbundlehash
                         break
 
             if not bundlehash:
+                logging.debug("No bundle hash found. Request new bundle")
                 bundlehash = self.genBundle(flask.request.url, key, iv, hmac_key)
 
             if not self.redis.sismember("bundles", bundlehash) or not self.redis.exists(bundlehash):
                 logging.error("Site not in bundles after bundling was requested!!")
 
 
+            logging.debug("Return found bundle")
             render_result = flask.render_template(
             	"debundler_template.html.j2",
             	hmac_key=unicode(self.hmac_key),
@@ -209,7 +213,6 @@ class bundleManagerDaemon():
         port = self.config["general"]["port"]
         url_salt = self.config["general"]["url_salt"]
 
-        bundler_url = self.config["general"]["bundler_path"]
         refresh_period = self.config["general"]["refresh_period"]
         template_directory = self.config["general"]["template_directory"]
 
@@ -217,7 +220,7 @@ class bundleManagerDaemon():
 
         d = DebundlerMaker(refresh_period)
         v = VedgeManager(vedge_data)
-        self.debundleServer = DebundlerServer(bundler_url, url_salt, refresh_period,
+        self.debundleServer = DebundlerServer(url_salt, refresh_period,
                                               d, v, template_directory=template_directory)
         logging.info("Starting to serve on port %d", port)
         self.debundleServer.run(debug=True, threaded=True, port=port, use_reloader=False)
