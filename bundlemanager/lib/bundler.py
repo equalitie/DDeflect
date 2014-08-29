@@ -209,13 +209,13 @@ class BundleMaker(object):
         There is a flaw in this system.
         """
         for r in reversed(resources):
-            if not r['content']: 
-                continue
-            if len( r['content'] ) > 262144: 
+            logging.info('Testing resource: [%s] ', r['url'])
+            if not r['content'] or r['content'] < 262144: 
                 continue
             if r['url'] != resources[0]['url']:
                 if not self.isSearchableFile(r['url']):
                     continue
+
             logging.info('Scanning resource: [%s] ', r['url'])
             for j in reversed(resources): 
                 if j['url'] == resources[0]['url']: 
@@ -233,6 +233,7 @@ class BundleMaker(object):
                     j['content'],
                     filename
                 )
+
                 filename = filename.replace('?', '\?')
                 resourcePattern1 = re.compile(
                     '(\'|")(\w|:|\/|-|@|\.*)*' + filename + '(\'|\")'
@@ -247,6 +248,7 @@ class BundleMaker(object):
                 r['content'] = resourcePattern2.sub(
                     '(' + dataURI + ')', r['content']
                 )
+                logging.info('Bundle created for resource: [%s] ', r['url'])
         return resources
 
     def convertToDataUri(self, content, extension):
