@@ -4,6 +4,7 @@ Python Modules
 """
 import unittest
 import requests
+import os
 
 """
 Bundle Manager modules
@@ -19,9 +20,9 @@ class TestBundlerLib(unittest.TestCase):
 
     def setUp(self):
         self.testUrl = "http://nosmo.me"
-        self.testKey = "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
-        self.testIV = "94949494949494949494949494949494"
-        self.testHmacKey = "f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7"
+        self.testKey = '\xdc\xd8\x8dN\xfa\xd41\x16k{\xe4\x8b\xe2\xaau\xa0'
+        self.testIV = '\x84GT\xce\xe1\xf8\xb2khe\xdb\x13\xbc\xd8\x1a\xa0'
+        self.testHmacKey = '8\xbd\xa8\xf6\xf7\xc2\x05Cf\xf6?\xa3\x82\xda\x83J'
         self.bundleMaker = BundleMaker()
 
     def testCreateBundle(self):
@@ -31,6 +32,8 @@ class TestBundlerLib(unittest.TestCase):
                                     self.testIV,
                                     self.testHmacKey
                                     )
+        expected_sig = '0\x90Q\x8f\x1b\x1a\xc8\xd9\xefHV\x0e\xd4\xe6\x13HW\xb6\x15.\xbe\x9a\xda\x91)^\xe9J\xdc\xb1\xbd\n'
+        self.assertEqual(result['hmac_sig'], expected_sig)
 
     def testFetchResources(self):
         testResp1 = requests.Response()
