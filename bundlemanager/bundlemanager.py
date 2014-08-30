@@ -21,6 +21,7 @@ import logging
 import logging.handlers
 
 from lib.bundler import BundleMaker
+from ghost import Ghost
 
 class DebundlerMaker(object):
 
@@ -322,6 +323,7 @@ def createHandler(daemon,config_path):
 
 
 if __name__ == "__main__":
+    #ghost = Ghost()
 
     parser = argparse.ArgumentParser(description = 'Manage DDeflect bundle serving and retreival.')
     parser.add_argument('-c', dest = 'config_path', action = 'store',
