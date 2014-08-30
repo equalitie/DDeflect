@@ -50,7 +50,6 @@ class BundleMaker(object):
         self.iv = None
         self.hmackey = None
        
-        self.ghost = Ghost()
 
     def createBundle(self, url, key, iv, hmackey):
         """
@@ -65,14 +64,15 @@ class BundleMaker(object):
         self.key = key
         self.iv = iv
         self.hmackey = hmackey
+
+        ghost = Ghost()
         resources = []
         #pageLoadCutoff = false
         resourceDomain = self.getResourceDomain(url)
         logging.info("Retrieved resource domain as: %s", resourceDomain)
 
         logging.info("Attempting to load requested page")
-        page, ext_resources = self.ghost.open(url)
-        
+        page, ext_resources = ghost.open(url)
         logging.info("Request returned with status: %s", page.http_status)
 
         resources = self.fetchResources(ext_resources, resourceDomain)
@@ -106,8 +106,8 @@ class BundleMaker(object):
             resourceDomain = BundleMaker.reGetDomain2.search(
                                 BundleMaker.reGetDomain1.search(url).group()
                             ).group()
-        if resourceDomain[:-1] != '/':
-            resourceDomain = resourceDomain + '/'
+            if resourceDomain[-1] != '/':
+                resourceDomain = resourceDomain + '/'
 
         return resourceDomain
 
