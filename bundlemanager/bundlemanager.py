@@ -26,6 +26,7 @@ from ghost import Ghost
 class DebundlerMaker(object):
 
     def __init__(self, refresh_period):
+
         self.refresh_period = refresh_period
         self.key = None
         self.iv = None
@@ -35,14 +36,16 @@ class DebundlerMaker(object):
                                          self.genKeys())
 
     def genKeys(self):
+
         keybytes = os.urandom(16)
         ivbytes = os.urandom(16)
         hmackeybytes = os.urandom(16)
-        if self.key and self.iv:
-            self.logger.info("Rotating keys. Old key was %s, old hmac key was %s and old IV was %s", self.key, self.iv, self.hmac_key)
-	    self.hmac_key = keybytes.encode('hex')
-            self.key = keybytes.encode("hex")
-            self.iv = ivbytes.encode("hex")
+        if self.key and self.iv and self.hmac_key:
+            logging.info("Rotating keys. Old key was %s, old hmac key was %s and old IV was %s", self.key, self.iv, self.hmac_key)
+        self.hmac_key = keybytes.encode('hex')
+        self.key = keybytes.encode("hex")
+        #self.iv = ivbytes.encode("hex")
+        self.iv = ivbytes
 
 class VedgeManager(object):
     def __init__(self, vedge_data):
@@ -108,7 +111,7 @@ class DebundlerServer(flask.Flask):
         # are currently saving so needs to be rechecked
         rendered_bundle = flask.render_template(
                             "bundle.json",
-                            encrypted = bundler_result['content'],
+                            encrypted = bundler_result['bundle'],
                             hmac = bundler_result['hmac_sig']
                             )
 
@@ -142,7 +145,6 @@ class DebundlerServer(flask.Flask):
             return resp
 
     def rootRoute(self, path):
-
         if path.startswith("_bundle"):
             logging.debug("Got a _bundle request at %s", path)
             if "/" not in path:
