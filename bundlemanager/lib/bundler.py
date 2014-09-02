@@ -96,12 +96,14 @@ class BundleMaker(object):
         equalit.ie/
         """
         resourceDomain = None
-        if 'http' not in url:
-            #this is an issue to discuss with nosmo
+        if not url:
             return None
+        elif 'http' not in url:
+            #TODO temporary hack because i dunno
+            #this is an issue to discuss with nosmo
+            if not url.endswith("/"): 
+                return url + "/"
         else:
-            if not url:
-                return None
             resourceDomain = BundleMaker.reGetDomain2.search(
                                 BundleMaker.reGetDomain1.search(url).group()
                             ).group()
