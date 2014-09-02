@@ -37,6 +37,7 @@ class BundleMaker(object):
         '\/(\w|-|@)+(\w|\?|\=|\.)+$'
     )
     reGetExtOnly = re.compile('\.\w+')
+    #FIXME these don't account for ports
     reGetDomain1 = re.compile('^https?:\/\/(\w|\.)+(\/|$)')
     reGetDomain2 = re.compile('\w+\.\w+(\.\w+)?(\/|$)')
 
