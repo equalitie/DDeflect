@@ -41,10 +41,10 @@ class DebundlerMaker(object):
         ivbytes = os.urandom(16)
         hmackeybytes = os.urandom(16)
         if self.key and self.iv and self.hmac_key:
-            logging.info("Rotating keys. Old key was %s, old hmac key was %s and old IV was %s", self.key, self.iv, self.hmac_key)
-        self.hmac_key = keybytes.encode('hex')
+            logging.info("Rotating keys. Old key was %s, old hmac key was %s and old IV was %s", self.key, self.iv.encode("hex"), self.hmac_key)
+
+        self.hmac_key = hmackeybytes.encode('hex')
         self.key = keybytes.encode("hex")
-        #self.iv = ivbytes.encode("hex")
         self.iv = ivbytes
 
 class VedgeManager(object):
@@ -94,33 +94,38 @@ class DebundlerServer(flask.Flask):
             del(self.bundles[url])
         return len(delete_list)
 
-    def genBundle(self, url, key, iv, hmac_key):
-        logging.debug("Bundle request url is %s",  url)
-        bundler_result = self.bundleMaker.createBundle( url,
-                                                key,
-                                                iv,
-                                                hmac_key
-                                            )
+    def genBundle(self, frequest, path, key, iv, hmac_key):
+        request_host = frequest.headers.get('Host')
+
+        logging.debug("Bundle request url is %s",  frequest.url)
+        bundler_result = self.bundleMaker.createBundle( frequest.url,
+                                                        key,
+                                                        iv,
+                                                        hmac_key
+                                                        )
 
         if not bundler_result:
-            logging.error("Failed to get bundle for %s: %s (%s)", url)
+            logging.error("Failed to get bundle for %s: %s (%s)", frequest.url)
             flask.abort(503)
         logging.debug("Bundle constructed and returned")
        
+        print type(bundler_result['bundle'].encode("hex"))
+        print bundler_result['bundle'].encode("hex")
+
         #Not 1 thousand percent sure this is the same as what you
         # are currently saving so needs to be rechecked
         rendered_bundle = flask.render_template(
                             "bundle.json",
-                            encrypted = bundler_result['bundle'],
-                            hmac = bundler_result['hmac_sig']
+                            encrypted = bundler_result['bundle'].encode("hex"),
+                            hmac = bundler_result['hmac_sig'].encode("hex")
                             )
 
         bundle_content = rendered_bundle
-        bundle_signature = hashlib.sha512( self.salt + bundle_content).hexdigest()
+        bundle_signature = hashlib.sha512(self.salt + bundle_content).hexdigest()
 
         self.redis.sadd("bundles", bundle_signature)
         self.redis.set(bundle_signature, json.dumps({
-            "host": host,
+            "host": request_host,
             "path": path,
             "bundle": bundle_content,
             "fetched": time.time()
@@ -152,7 +157,7 @@ class DebundlerServer(flask.Flask):
                 flask.abort(503)
             return self.serveBundle(path.split("/")[1])
         else:
-            v_edge = self.vedge_manager.getVedge()[0]
+            v_edge = self.vedge_manager.getVedge()
             key = self.debundler_maker.key
             iv = self.debundler_maker.iv
             hmac_key = self.debundler_maker.hmac_key
@@ -163,9 +168,8 @@ class DebundlerServer(flask.Flask):
             #DEBUG given that we're doing a dumb example here, let's just
             #use the first bundle we have
             request_host = flask.request.headers.get('Host')
-            url = request_host.format(path, key, iv, hmac_key)
 
-            logging.debug("Request is for %s", url)
+            logging.debug("Request is for %s", flask.request.url)
 
             #TODO set cookies here
             #flask.request.cookies.get()
@@ -183,7 +187,8 @@ class DebundlerServer(flask.Flask):
 
             if not bundlehash:
                 logging.debug("No bundle hash found. Request new bundle")
-                bundlehash = self.genBundle(flask.request.url, key, iv, hmac_key)
+                bundlehash = self.genBundle(flask.request, path, 
+                                            key, iv, hmac_key)
 
             if not self.redis.sismember("bundles", bundlehash) or not self.redis.exists(bundlehash):
                 logging.error("Site not in bundles after bundling was requested!!")
@@ -192,8 +197,9 @@ class DebundlerServer(flask.Flask):
             logging.debug("Return found bundle")
             render_result = flask.render_template(
             	"debundler_template.html.j2",
-            	hmac_key=unicode(self.hmac_key),
-        	key=unicode(key),iv=unicode(iv), v_edge=unicode(v_edge),
+            	hmac_key=unicode(hmac_key),
+        	key=unicode(key),iv=unicode(iv.encode("hex")), 
+                v_edge=unicode(v_edge),
             	bundle_signature=bundlehash)
 
 

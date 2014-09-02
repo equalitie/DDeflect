@@ -45,7 +45,7 @@
 		var decryptBundle = function(encrypted, HMAC) {
 			var key       = CryptoJS.enc.Hex.parse('{{key}}')
 			var iVector   = CryptoJS.enc.Hex.parse('{{iv}}')
-			var HMACKey   = CryptoJS.enc.Hex.parse('{{hmackey}}')
+			var HMACKey   = CryptoJS.enc.Hex.parse('{{hmac_key}}')
 			// var key       = CryptoJS.enc.Hex.parse('0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a')
 			// var iVector   = CryptoJS.enc.Hex.parse('94949494949494949494949494949494')
 			// var HMACKey   = CryptoJS.enc.Hex.parse('f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7')
