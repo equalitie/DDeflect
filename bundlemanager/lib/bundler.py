@@ -41,7 +41,7 @@ class BundleMaker(object):
     reGetDomain1 = re.compile('^https?:\/\/(\w|\.)+(\/|$)')
     reGetDomain2 = re.compile('\w+\.\w+(\.\w+)?(\/|$)')
 
-    def __init__(self):
+    def __init__(self, remap_rules):
         """
         Only important thing to setup here is Ghost, which will drive the key
         aspect of bundler - getting the resource list
@@ -49,9 +49,9 @@ class BundleMaker(object):
         self.key = None
         self.iv = None
         self.hmackey = None
-       
+        self.remap_rules = remap_rules
 
-    def createBundle(self, url, key, iv, hmackey):
+    def createBundle(self, request, key, iv, hmackey):
         """
         This is function which ties it altogether
         primarily this is process manager function.
@@ -59,7 +59,7 @@ class BundleMaker(object):
         Input: Request to bundle, encryption keys
         Output: Encrypted bundle, hmac signature
         """
-        logging.info("Processing request for: %s", url)
+        logging.info("Processing request for: %s", request.url)
 
         self.key = key
         self.iv = iv
@@ -68,11 +68,21 @@ class BundleMaker(object):
         ghost = Ghost()
         resources = []
         #pageLoadCutoff = false
-        resourceDomain = self.getResourceDomain(url)
+        resourceDomain = self.getResourceDomain(request.url)
+
         logging.info("Retrieved resource domain as: %s", resourceDomain)
 
-        logging.info("Attempting to load requested page")
-        page, ext_resources = ghost.open(url)
+        #Pass through request headers directly like a proper proxy
+        headers = { 
+            'host': request.headers['host']
+        }
+        logging.info('Getting remap rule for request')
+        remapped_url = self.remapReqURL(request, request.headers['host'])
+        if not remapped_url:
+            return None
+        
+        logging.info("Attempting to load remapped page: %s", remapped_url)
+        page, ext_resources = ghost.open(remapped_url, headers=headers)
         logging.info("Request returned with status: %s", page.http_status)
 
         resources = self.fetchResources(ext_resources, resourceDomain)
@@ -89,7 +99,29 @@ class BundleMaker(object):
             "bundle": bundle,
             "hmac_sig": hmac_sig
         }
-                            
+
+    def remapReqURL(self, request, host):
+        """
+        Remap given url based on rules defined by
+        conf file
+        """
+        import ipdb
+        ipdb.set_trace()
+        remap_domain = self.remap_rules[host]
+        full_path = ''
+        if '?' in request.url:
+            pos = request.url.rfind(request.path)
+            full_path = request.url[:pos] 
+        else:
+            full_path = request.path
+        logging.info('URL path: %s', full_path)
+
+        if remap_domain:                    
+            return "http://{0}{1}".format(remap_domain['origin'], full_path)
+        else:
+            logging.error('No remap rule found for host: %s', host)
+            return None
+
     def getResourceDomain(self, url):
         """
         Retrieve the domain of the URL/URI, for example:

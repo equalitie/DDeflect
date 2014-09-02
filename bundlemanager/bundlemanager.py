@@ -58,7 +58,7 @@ class VedgeManager(object):
 
 class DebundlerServer(flask.Flask):
 
-    def __init__(self, salt, refresh_period,
+    def __init__(self, salt, refresh_period, remap_rules,
                  debundler_maker, vedge_manager, template_directory=""):
         super(DebundlerServer, self).__init__("DebundlerServer")
         if template_directory:
@@ -77,7 +77,7 @@ class DebundlerServer(flask.Flask):
         self.route("/_bundle/")(self.serveBundle)
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
-        self.bundleMaker = BundleMaker()
+        self.bundleMaker = BundleMaker(remap_rules)
 
     def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
@@ -98,7 +98,7 @@ class DebundlerServer(flask.Flask):
         request_host = frequest.headers.get('Host')
 
         logging.debug("Bundle request url is %s",  frequest.url)
-        bundler_result = self.bundleMaker.createBundle( frequest.url,
+        bundler_result = self.bundleMaker.createBundle( frequest,
                                                         key,
                                                         iv,
                                                         hmac_key
@@ -227,11 +227,13 @@ class bundleManagerDaemon():
         template_directory = self.config["general"]["template_directory"]
 
         vedge_data = self.config["v_edges"]
+        remap_rules = self.config["remap"]
 
         d = DebundlerMaker(refresh_period)
         v = VedgeManager(vedge_data)
-        self.debundleServer = DebundlerServer(url_salt, refresh_period,
-                                              d, v, template_directory=template_directory)
+        self.debundleServer = DebundlerServer(url_salt, refresh_period, 
+                                            remap_rules, d, v,
+                                            template_directory=template_directory)
         logging.info("Starting to serve on port %d", port)
         self.debundleServer.run(debug=True, threaded=True, host=host, port=port, use_reloader=False)
 

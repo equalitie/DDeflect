@@ -15,3 +15,7 @@ v_edges:
     availability:
       start: ""
       end: ""
+
+remap:
+  "nosmo.me":
+    origin: "www.nosmo.me"
