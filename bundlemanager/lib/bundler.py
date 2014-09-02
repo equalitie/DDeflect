@@ -91,9 +91,9 @@ class BundleMaker(object):
 
         resources = self.replaceResources(resources)
         logging.info('Resources replaced')
-        bundle = self.encryptBundle(resources[0]['content'])
+        bundle = ( self.encryptBundle(resources[0]['content'])).encode('hex')
         logging.info('Bundle encrypted')
-        hmac_sig = self.signBundle(bundle)
+        hmac_sig = (self.signBundle(bundle)).encode('hex')
         logging.info('Bundle signed - and now they know when in memory to look :(')
         return {
             "bundle": bundle,
@@ -105,8 +105,6 @@ class BundleMaker(object):
         Remap given url based on rules defined by
         conf file
         """
-        import ipdb
-        ipdb.set_trace()
         remap_domain = self.remap_rules[host]
         full_path = ''
         if '?' in request.url:
@@ -155,7 +153,7 @@ class BundleMaker(object):
                     self.hmackey, 
                     bundle, 
                     hashlib.sha256
-                ).digest()
+                ).hexdigest()
 
     def encryptBundle(self, content):
         """

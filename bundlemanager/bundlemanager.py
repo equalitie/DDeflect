@@ -109,20 +109,20 @@ class DebundlerServer(flask.Flask):
             flask.abort(503)
         logging.debug("Bundle constructed and returned")
        
-        print type(bundler_result['bundle'].encode("hex"))
-        print bundler_result['bundle'].encode("hex")
 
         #Not 1 thousand percent sure this is the same as what you
         # are currently saving so needs to be rechecked
+        logging.info("hmac_sig: %s", bundler_result['hmac_sig'])
+        logging.info("bundle: %s", bundler_result['bundle'])
+        logging.info("hmac_key: %s", hmac_key)
         rendered_bundle = flask.render_template(
                             "bundle.json",
-                            encrypted = bundler_result['bundle'].encode("hex"),
-                            hmac = bundler_result['hmac_sig'].encode("hex")
+                            encrypted = bundler_result['bundle'],
+                            hmac = bundler_result['hmac_sig']
                             )
 
         bundle_content = rendered_bundle
         bundle_signature = hashlib.sha512(self.salt + bundle_content).hexdigest()
-
         self.redis.sadd("bundles", bundle_signature)
         self.redis.set(bundle_signature, json.dumps({
             "host": request_host,
