@@ -69,7 +69,7 @@
 				if (this.status !== 200) return
 				// TODO pingback and say we failed to load
 				var returnedContent = this.responseText
-                var bundle_json = json.load(returnedContent);
+				var bundle_json = JSON.parse(returnedContent);
 				// Hugh, you also need to find a way to communicate the HMAC now.
 				decryptBundle(bundle_json["encrypted"], bundle_json["hmac"])
 			}
