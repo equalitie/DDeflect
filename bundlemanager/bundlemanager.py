@@ -220,6 +220,7 @@ class bundleManagerDaemon():
     def run(self):
 
         port = self.config["general"]["port"]
+        host = self.config["general"]["host"]
         url_salt = self.config["general"]["url_salt"]
 
         refresh_period = self.config["general"]["refresh_period"]
@@ -232,7 +233,7 @@ class bundleManagerDaemon():
         self.debundleServer = DebundlerServer(url_salt, refresh_period,
                                               d, v, template_directory=template_directory)
         logging.info("Starting to serve on port %d", port)
-        self.debundleServer.run(debug=True, threaded=True, port=port, use_reloader=False)
+        self.debundleServer.run(debug=True, threaded=True, host=host, port=port, use_reloader=False)
 
     def delpid(self):
         if os.path.exists(self.pidfile):
@@ -331,7 +332,6 @@ def createHandler(daemon,config_path):
 
 
 if __name__ == "__main__":
-    #ghost = Ghost()
 
     parser = argparse.ArgumentParser(description = 'Manage DDeflect bundle serving and retreival.')
     parser.add_argument('-c', dest = 'config_path', action = 'store',
@@ -355,8 +355,9 @@ if __name__ == "__main__":
     logging.info("Loading config from %s", args.config_path)
     config = yaml.load(open(args.config_path).read())
 
+    #TODO Dropping here breaks binding to ports less than 1025
     dropPrivileges(config["general"]["uid_name"],
-                    config["general"]["gid_name"])
+                   config["general"]["gid_name"])
 
     pidfile = config['general']['pidfile']
     daemon = bundleManagerDaemon(pidfile, config)
