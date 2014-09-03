@@ -91,9 +91,9 @@ class BundleMaker(object):
 
         resources = self.replaceResources(resources)
         logging.info('Resources replaced')
-        bundle = ( self.encryptBundle(resources[0]['content'])).encode('hex')
+        bundle = self.encryptBundle(resources[0]['content'])
         logging.info('Bundle encrypted')
-        hmac_sig = (self.signBundle(bundle)).encode('hex')
+        hmac_sig = self.signBundle(bundle)
         logging.info('Bundle signed - and now they know when in memory to look :(')
         return {
             "bundle": bundle,
@@ -165,7 +165,7 @@ class BundleMaker(object):
                         AES.MODE_CFB, 
                         self.iv
                     )
-        return aes.encrypt(content)
+        return str(aes.encrypt(content))
 
     def fetchResources(self, resources, resourceDomain):
         """
