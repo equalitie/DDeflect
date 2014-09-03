@@ -165,7 +165,7 @@ class BundleMaker(object):
                         AES.MODE_CFB, 
                         self.iv
                     )
-        return str(aes.encrypt(content))
+        return str(aes.encrypt(content)).encode('hex')
 
     def fetchResources(self, resources, resourceDomain):
         """
