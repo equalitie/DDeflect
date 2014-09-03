@@ -10,7 +10,8 @@ import mimetypes
 import re
 import base64
 import logging
-
+import StringIO
+import binascii
 """
 Third party modules
 """
@@ -160,14 +161,29 @@ class BundleMaker(object):
         Encrypt the base64 encoded bundle using the generated key and IV
         provided by the calling application
         """
+        padded_content = self.encode(content)
+        key = binascii.unhexlify(self.key)
+        iv = binascii.unhexlify(self.iv)
+
         aes = AES.new(
-                        self.key, 
+                        key, 
                         AES.MODE_CFB, 
-                        self.iv
+                        iv,             
+                        segment_size=128
                     )
-        import ipdb
-        ipdb.set_trace()
-        return aes.encrypt(content).encode('hex')
+
+        return base64.b64encode( aes.encrypt(padded_content) )
+
+    def encode(self, text):
+        '''
+        Pad an input string according to PKCS#7
+        '''
+        l = len(text)
+        output = StringIO.StringIO()
+        val = 16 - (l % 16)
+        for _ in xrange(val):
+            output.write('%02x' % val)
+        return text + binascii.unhexlify(output.getvalue())
 
     def fetchResources(self, resources, resourceDomain):
         """

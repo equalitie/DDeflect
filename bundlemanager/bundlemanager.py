@@ -43,9 +43,9 @@ class DebundlerMaker(object):
         if self.key and self.iv and self.hmac_key:
             logging.info("Rotating keys. Old key was %s, old hmac key was %s and old IV was %s", self.key, self.iv.encode("hex"), self.hmac_key)
 
-        self.hmac_key = hmackeybytes.encode('hex')
-        self.key = keybytes.encode("hex")
-        self.iv = ivbytes.encode("hex")
+        self.hmac_key = 'd74e07a0ec87803d1bda21e2b9bb409e'#hmackeybytes.encode('hex')
+        self.key = 'ce975de9294067470d1684442555767fcb007c5a3b89927714e449c3f66cb2a4' #keybytes.encode("hex")
+        self.iv = '9aaecfcf7e82abb8118d8e567d42ee86' #ivbytes.encode("hex")
 
 class VedgeManager(object):
     def __init__(self, vedge_data):
