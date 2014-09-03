@@ -19,7 +19,7 @@
 		var decryptBundle = function(encrypted, HMAC) {
 			var key       = CryptoJS.enc.Hex.parse('{{key}}')
 			var iVector   = CryptoJS.enc.Hex.parse('{{iv}}')
-			var HMACKey   = CryptoJS.enc.Hex.parse('{{hmac_key}}')
+			var HMACKey   = {{'hmac_key'}} //CryptoJS.enc.Hex.parse('{{hmac_key}}')
 			var ourHMAC   = CryptoJS.HmacSHA256(encrypted, HMACKey).toString()
 			if (constantTimeCompare(HMAC, ourHMAC)) {
 				var decrypted = CryptoJS.AES.decrypt(encrypted, key, {iv: iVector, mode: CryptoJS.mode.CFB})
