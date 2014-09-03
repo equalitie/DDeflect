@@ -165,7 +165,9 @@ class BundleMaker(object):
                         AES.MODE_CFB, 
                         self.iv
                     )
-        return str(aes.encrypt(content)).encode('hex')
+        import ipdb
+        ipdb.set_trace()
+        return aes.encrypt(content).encode('hex')
 
     def fetchResources(self, resources, resourceDomain):
         """
@@ -182,20 +184,22 @@ class BundleMaker(object):
         for r in resources:
             #This is not very intelligent, as it heavily restricts using
             #your own CDN for example
-            if 'http' in r.url and resourceDomain in r.url:
-                enc = 'base64';
-                if self.isSearchableFile(str(r.url)) or r.url == resources[0].url: 
-                    enc = 'utf8'
                 resourcePage = requests.get(
                     str(r.url),
                     timeout=8
                 )
-                resourcePage.encoding = enc
+
+                content = ''
+                if self.isSearchableFile(str(r.url)) or r.url == resources[0].url: 
+                    content = resourcePage.content.encode('utf8')
+                else:
+                    content = base64.b64encode(resourcePage.content)
+
                 if resourcePage.status_code == requests.codes.ok:
                     logging.info('Get resource: %s', str(r.url))
                     new_resources.append(
                         { 
-                            "content": resourcePage.content,
+                            "content": content,
                             "url": resourcePage.url
                         }
                     )
@@ -296,7 +300,10 @@ class BundleMaker(object):
             extension = '.html'
 
         dataURI = 'data:' + mimetypes.types_map[extension] + ';base64,'
-        dataURI =  dataURI + base64.b64encode(content)
+        if self.isSearchableFile(str(extension)): 
+            dataURI =  dataURI + base64.b64encode(content)
+        else:
+            dataURI = dataURI + content
 	
         return dataURI
 

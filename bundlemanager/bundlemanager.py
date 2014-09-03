@@ -38,14 +38,14 @@ class DebundlerMaker(object):
     def genKeys(self):
 
         keybytes = os.urandom(16)
-        ivbytes = os.urandom(16)
+        ivbytes = os.urandom(8)
         hmackeybytes = os.urandom(16)
         if self.key and self.iv and self.hmac_key:
             logging.info("Rotating keys. Old key was %s, old hmac key was %s and old IV was %s", self.key, self.iv.encode("hex"), self.hmac_key)
 
         self.hmac_key = hmackeybytes.encode('hex')
         self.key = keybytes.encode("hex")
-        self.iv = ivbytes
+        self.iv = ivbytes.encode("hex")
 
 class VedgeManager(object):
     def __init__(self, vedge_data):
@@ -108,9 +108,6 @@ class DebundlerServer(flask.Flask):
             logging.error("Failed to get bundle for %s: %s (%s)", frequest.url)
             flask.abort(503)
         logging.debug("Bundle constructed and returned")
-       
-        import ipdb
-
 
         #Not 1 thousand percent sure this is the same as what you
         # are currently saving so needs to be rechecked
@@ -197,7 +194,7 @@ class DebundlerServer(flask.Flask):
             render_result = flask.render_template(
             	"debundler_template.html.j2",
             	hmac_key=unicode(hmac_key),
-        	key=unicode(key),iv=unicode(iv.encode("hex")), 
+        	key=unicode(key),iv=unicode(iv), 
                 v_edge=unicode(v_edge),
             	bundle_signature=bundlehash)
 
