@@ -80,6 +80,7 @@ class BundleMaker(object):
         logging.info('Getting remap rule for request')
         remapped_url = self.remapReqURL(request, request.headers['host'])
         if not remapped_url:
+            logging.error('No remap rule found for: %s', request.headers['host'])
             return None
         
         logging.info("Attempting to load remapped page: %s", remapped_url)
