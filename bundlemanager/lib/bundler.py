@@ -66,10 +66,12 @@ class BundleMaker(object):
         self.iv = iv
         self.hmackey = hmackey
 
+        import ipdb 
+        ipdb.set_trace()
         ghost = Ghost()
         resources = []
         #pageLoadCutoff = false
-        resourceDomain = self.getResourceDomain(request.url)
+        resourceDomain = 'localhost/' #self.getResourceDomain(request.url)
 
         logging.info("Retrieved resource domain as: %s", resourceDomain)
 
@@ -107,7 +109,7 @@ class BundleMaker(object):
         Remap given url based on rules defined by
         conf file
         """
-        remap_domain = self.remap_rules[host]
+        remap_domain = self.remap_rules[host] if host in self.remap_rules else None
         full_path = ''
         if '?' in request.url:
             pos = request.url.rfind(request.path)
@@ -137,6 +139,7 @@ class BundleMaker(object):
             if not url.endswith("/"): 
                 return url + "/"
         else:
+            #TOD0: Add error checking here
             resourceDomain = BundleMaker.reGetDomain2.search(
                                 BundleMaker.reGetDomain1.search(url).group()
                             ).group()
