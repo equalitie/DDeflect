@@ -1,9 +1,3 @@
-{% for site, attributes in remap.iteritems() %}
-{% if remap[item.key]["network"] == network %}
-regex_map    http://^(www\.)?{{item.key}}$/         http://localhost:{{ bundlemanager_port }}/
-{% if remap[item.key]["https"] %}
-regex_map    https://^(www\.)?{{item.key}}$/         http://localhost:{{ bundlemanager_port }}/
-{% endif %}
-{% endif %}
-
+{% for site in remap %}
+.include remap.d/{{site}}.config
 {% endfor %}

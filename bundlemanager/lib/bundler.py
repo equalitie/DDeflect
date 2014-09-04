@@ -10,7 +10,8 @@ import mimetypes
 import re
 import base64
 import logging
-
+import StringIO
+import binascii
 """
 Third party modules
 """
@@ -37,10 +38,11 @@ class BundleMaker(object):
         '\/(\w|-|@)+(\w|\?|\=|\.)+$'
     )
     reGetExtOnly = re.compile('\.\w+')
+    #FIXME these don't account for ports
     reGetDomain1 = re.compile('^https?:\/\/(\w|\.)+(\/|$)')
     reGetDomain2 = re.compile('\w+\.\w+(\.\w+)?(\/|$)')
 
-    def __init__(self):
+    def __init__(self, remap_rules):
         """
         Only important thing to setup here is Ghost, which will drive the key
         aspect of bundler - getting the resource list
@@ -48,9 +50,9 @@ class BundleMaker(object):
         self.key = None
         self.iv = None
         self.hmackey = None
-       
+        self.remap_rules = remap_rules
 
-    def createBundle(self, url, key, iv, hmackey):
+    def createBundle(self, request, key, iv, hmackey):
         """
         This is function which ties it altogether
         primarily this is process manager function.
@@ -58,7 +60,7 @@ class BundleMaker(object):
         Input: Request to bundle, encryption keys
         Output: Encrypted bundle, hmac signature
         """
-        logging.info("Processing request for: %s", url)
+        logging.info("Processing request for: %s", request.url)
 
         self.key = key
         self.iv = iv
@@ -67,11 +69,21 @@ class BundleMaker(object):
         ghost = Ghost()
         resources = []
         #pageLoadCutoff = false
-        resourceDomain = self.getResourceDomain(url)
+        resourceDomain = self.getResourceDomain(request.url)
+
         logging.info("Retrieved resource domain as: %s", resourceDomain)
 
-        logging.info("Attempting to load requested page")
-        page, ext_resources = ghost.open(url)
+        #Pass through request headers directly like a proper proxy
+        headers = { 
+            'host': request.headers['host']
+        }
+        logging.info('Getting remap rule for request')
+        remapped_url = self.remapReqURL(request, request.headers['host'])
+        if not remapped_url:
+            return None
+        
+        logging.info("Attempting to load remapped page: %s", remapped_url)
+        page, ext_resources = ghost.open(remapped_url, headers=headers)
         logging.info("Request returned with status: %s", page.http_status)
 
         resources = self.fetchResources(ext_resources, resourceDomain)
@@ -88,7 +100,27 @@ class BundleMaker(object):
             "bundle": bundle,
             "hmac_sig": hmac_sig
         }
-                            
+
+    def remapReqURL(self, request, host):
+        """
+        Remap given url based on rules defined by
+        conf file
+        """
+        remap_domain = self.remap_rules[host]
+        full_path = ''
+        if '?' in request.url:
+            pos = request.url.rfind(request.path)
+            full_path = request.url[:pos] 
+        else:
+            full_path = request.path
+        logging.info('URL path: %s', full_path)
+
+        if remap_domain:                    
+            return "http://{0}{1}".format(remap_domain['origin'], full_path)
+        else:
+            logging.error('No remap rule found for host: %s', host)
+            return None
+
     def getResourceDomain(self, url):
         """
         Retrieve the domain of the URL/URI, for example:
@@ -96,12 +128,14 @@ class BundleMaker(object):
         equalit.ie/
         """
         resourceDomain = None
-        if 'http' not in url:
-            #this is an issue to discuss with nosmo
+        if not url:
             return None
+        elif 'http' not in url:
+            #TODO temporary hack because i dunno
+            #this is an issue to discuss with nosmo
+            if not url.endswith("/"): 
+                return url + "/"
         else:
-            if not url:
-                return None
             resourceDomain = BundleMaker.reGetDomain2.search(
                                 BundleMaker.reGetDomain1.search(url).group()
                             ).group()
@@ -120,19 +154,36 @@ class BundleMaker(object):
                     self.hmackey, 
                     bundle, 
                     hashlib.sha256
-                ).digest()
+                ).hexdigest()
 
     def encryptBundle(self, content):
         """
         Encrypt the base64 encoded bundle using the generated key and IV
         provided by the calling application
         """
+        padded_content = self.encode(content)
+        key = binascii.unhexlify(self.key)
+        iv = binascii.unhexlify(self.iv)
+
         aes = AES.new(
-                        self.key, 
+                        key, 
                         AES.MODE_CFB, 
-                        self.iv
+                        iv,             
+                        segment_size=128
                     )
-        return aes.encrypt(content)
+
+        return base64.b64encode( aes.encrypt(padded_content) )
+
+    def encode(self, text):
+        '''
+        Pad an input string according to PKCS#7
+        '''
+        l = len(text)
+        output = StringIO.StringIO()
+        val = 16 - (l % 16)
+        for _ in xrange(val):
+            output.write('%02x' % val)
+        return text + binascii.unhexlify(output.getvalue())
 
     def fetchResources(self, resources, resourceDomain):
         """
@@ -149,20 +200,22 @@ class BundleMaker(object):
         for r in resources:
             #This is not very intelligent, as it heavily restricts using
             #your own CDN for example
-            if 'http' in r.url and resourceDomain in r.url:
-                enc = 'base64';
-                if self.isSearchableFile(str(r.url)) or r.url == resources[0].url: 
-                    enc = 'utf8'
                 resourcePage = requests.get(
                     str(r.url),
                     timeout=8
                 )
-                resourcePage.encoding = enc
+
+                content = ''
+                if self.isSearchableFile(str(r.url)) or r.url == resources[0].url: 
+                    content = resourcePage.content.encode('utf8')
+                else:
+                    content = base64.b64encode(resourcePage.content)
+
                 if resourcePage.status_code == requests.codes.ok:
                     logging.info('Get resource: %s', str(r.url))
                     new_resources.append(
                         { 
-                            "content": resourcePage.content,
+                            "content": content,
                             "url": resourcePage.url
                         }
                     )
@@ -263,7 +316,10 @@ class BundleMaker(object):
             extension = '.html'
 
         dataURI = 'data:' + mimetypes.types_map[extension] + ';base64,'
-        dataURI =  dataURI + base64.b64encode(content)
+        if self.isSearchableFile(str(extension)): 
+            dataURI =  dataURI + base64.b64encode(content)
+        else:
+            dataURI = dataURI + content
 	
         return dataURI
 

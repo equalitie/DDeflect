@@ -24,6 +24,7 @@
   vars_files:
     - deflect.yml
     - clients.yml
+    - edges.yml
 
 - hosts: controller
   sudo: True

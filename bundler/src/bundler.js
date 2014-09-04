@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// -*- eval: (indent-tabs-mode t) -*-
+
 'use strict';
 /*
 * Load dependencies.
@@ -14,7 +16,8 @@ var portScanner = require('portscanner'),
 	http        = require('http'),
 	path        = require('path'),
 	fs          = require('fs'),
-  Syslog      = require('node-syslog');
+	Syslog      = require('node-syslog'),
+	yaml        = require('js-yaml');
 
 /*
  * Disable warnings.
@@ -33,7 +36,7 @@ var portScanner = require('portscanner'),
 //});
 
 /*
- * Init logging to syslog (only when not to console anyway) 
+ * Init logging to syslog (only when not to console anyway)
  */
 if (process.argv[2] != '-v') {
 	Syslog.init("bundler", Syslog.LOG_PID | Syslog.LOG_ODELAY, Syslog.LOG_LOCAL0);
@@ -53,9 +56,30 @@ fs.readFile('bundle.json', function(err, data) {
 	if (err) { throw err }
 	debundlerState = data.toString()
 })
-
 Debundler = debundlerState
 
+// lol javascript
+var configData = {};
+var configThing = {};
+try {
+    var yamlfile = fs.readFileSync('config.yaml');
+    configThing = yaml.safeLoad(yamlfile.toString());
+} catch (err) {
+    console.error("Error when loading config file: " + err);
+}
+configData = configThing;
+
+var listenport = 3000;
+var listenip = "127.0.0.1";
+
+if ("listen" in configData) {
+    if ("host" in configData) {
+        listenip = configdata["listen"]["host"];
+    }
+    if ("port" in configData) {
+        listenport = configData["listen"]["port"];
+    }
+}
 
 // print to commandline if -v
 Bundler.log = function(message) {
@@ -66,20 +90,34 @@ Bundler.log = function(message) {
 	}
 };
 
-http.createServer(Bundler).listen(3000, '0.0.0.0', function() {
-  var banner = [
-'____  _   _ _   _ ____  _     _____ ____  ',
-'| __ )| | | | \\ | |  _ \\| |   | ____|  _ \\ ',
-'|  _ \\| | | |  \\| | | | | |   |  _| | |_) |',
-'| |_) | |_| | |\\  | |_| | |___| |___|  _ < ',
-'|____/ \\___/|_| \\_|____/|_____|_____|_| \\_\\']
-  banner.map(function(line) {console.log(line.rainbow.bold)});
-	console.log('');
-	Bundler.log('Ready!');
+// phantomjs shits itself if it can't find the actual program for
+// phantomjs in the path. Jerk.
+process.env.PATH = process.env.PATH + ":../node_modules/phantomjs/bin";
+
+http.createServer(Bundler).listen(listenport, listenip, function() {
+    var banner = [
+	'____  _   _ _   _ ____  _     _____ ____  ',
+	'| __ )| | | | \\ | |  _ \\| |   | ____|  _ \\ ',
+	'|  _ \\| | | |  \\| | | | | |   |  _| | |_) |',
+	'| |_) | |_| | |\\  | |_| | |___| |___|  _ < ',
+	'|____/ \\___/|_| \\_|____/|_____|_____|_| \\_\\']
+    banner.map(function(line) {console.log(line.rainbow.bold)});
+    console.log('');
+    Bundler.log('Ready!');
+
     //Drop privileges if running as root
-    if (process.getgid() === 0) {
-      process.setgid('nobody');
-      process.setuid('nobody');
+    if (process.getuid() === 0) {
+	console.log("Dropping privileges");
+	// TODO actually have these values read out of config - config
+	// is usually read AFTER this point
+	if ("group" in configData) {
+	    console.log("Dropping group to " + configData["group"]);
+            process.setgid(configData["group"]);
+	}
+	if ("user" in configData) {
+	    console.log("Dropping user to " + configData["user"]);
+            process.setuid(configData["user"]);
+	}
     }
 });
 
@@ -170,8 +208,7 @@ Bundler.mainProcess = function(req, res, proc) {
 	proc.page.open(req.query.url, function(status) {
 		proc.pageLoadedCutoff = true;
 		if (status !== 'success') {
-			// Handle page load failure here
-			// THIS IS NOT DONE NADIM!
+                    //TODO https://redmine.equalit.ie/redmine/issues/324
 			Bundler.log('Abort'.red.bold + ': ' + status);
 			return false;
 		}
@@ -187,9 +224,10 @@ Bundler.mainProcess = function(req, res, proc) {
 					Bundler.log('Begin scanning resources.'.inverse);
 					proc.resources = Bundler.replaceResource(proc.resources);
 					Bundler.log('Encrypting bundle: '.bold + proc.resources[0].url.green);
-					var key     = CryptoJS.enc.Hex.parse(req.query.key)//'0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a')
-					var iVector = CryptoJS.enc.Hex.parse(req.query.iv)//'94949494949494949494949494949494')
-					var HMACKey = CryptoJS.enc.Hex.parse(req.query.hmackey)//'f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7')
+					var key     = CryptoJS.enc.Hex.parse(req.query.key)
+					var iVector = CryptoJS.enc.Hex.parse(req.query.iv)
+					var HMACKey = CryptoJS.enc.Hex.parse(req.query.hmackey)
+
 					var encrypted = CryptoJS.AES.encrypt(
 						proc.resources[0].content, key, {iv: iVector}
 					).toString();
@@ -223,7 +261,7 @@ Bundler.isSearchableFile = function(url) {
 
 Bundler.fetchResource = function(url, resourceNumber, callback) {
 	var enc = 'Base64';
-	if (Bundler.isSearchableFile(url) 
+	if (Bundler.isSearchableFile(url)
 	|| resourceNumber == 0) { // why?
 		enc = 'utf8';
 	}
