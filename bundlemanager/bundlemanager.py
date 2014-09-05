@@ -77,6 +77,7 @@ class DebundlerServer(flask.Flask):
         self.route("/_bundle/")(self.serveBundle)
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
+        self.route('/<path:path>',  methods=['POST'])(self.postRoute)
         self.bundleMaker = BundleMaker(remap_rules)
 
     def reloadVEdges(self, vedge_manager):
@@ -129,6 +130,14 @@ class DebundlerServer(flask.Flask):
         self.redis.expire(bundle_signature, self.refresh_period)
 
         return bundle_signature
+
+    def postRoute(self):
+        """
+        Passes POST request directly to the remapped origin
+        returns the server's response
+        """
+        remapped_origin = self.bundleMaker.remapReqURL(flask.request)
+        return flask.redirect(remapped_origin, code=307)
 
     def serveBundle(self, bundlehash):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
