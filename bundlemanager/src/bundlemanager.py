@@ -66,6 +66,8 @@ class DebundlerServer(flask.Flask):
         self.debundler_maker = debundler_maker
         self.vedge_manager = vedge_manager
         self.bundles = collections.defaultdict(dict)
+        self.remap_rules = remap_rules
+        self.bundleMaker = BundleMaker(remap_rules)
 
         self.salt = salt
         self.refresh_period = refresh_period
@@ -77,7 +79,6 @@ class DebundlerServer(flask.Flask):
         self.route("/_bundle/")(self.serveBundle)
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
-        self.bundleMaker = BundleMaker(remap_rules)
 
     def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
@@ -131,12 +132,18 @@ class DebundlerServer(flask.Flask):
     def genBundle(self, frequest, path, key, iv, hmac_key):
         request_host = frequest.headers.get('Host')
 
+        if request_host in self.remap_rules:
+            remap_host = self.remap_rules[request_host]
+        else:
+            return None
+        
         logging.debug("Bundle request url is %s",  frequest.url)
-        bundler_result = self.bundleMaker.createBundle( frequest,
-                                                        key,
-                                                        iv,
-                                                        hmac_key
-        )
+        bundler_result = self.bundleMaker.createBundle(frequest,
+                                                       remap_host,
+                                                       key,
+                                                       iv,
+                                                       hmac_key
+                                                       )
 
         if not bundler_result:
             logging.error("Failed to get bundle for %s: %s (%s)", frequest.url)
@@ -220,6 +227,8 @@ class DebundlerServer(flask.Flask):
                 logging.debug("No bundle hash found. Request new bundle")
                 bundlehash = self.genBundle(flask.request, path,
                                             key, iv, hmac_key)
+                if not bundlehash:
+                    flask.abort(404)
 
             if not self.redis.sismember("bundles", bundlehash) or not self.redis.exists(bundlehash):
                 logging.error("Site not in bundles after bundling was requested!!")
