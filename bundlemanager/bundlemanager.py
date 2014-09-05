@@ -20,9 +20,13 @@ import threading
 import logging
 import logging.handlers
 
+from lib.bundler import BundleMaker
+from ghost import Ghost
+
 class DebundlerMaker(object):
 
     def __init__(self, refresh_period):
+
         self.refresh_period = refresh_period
         self.key = None
         self.iv = None
@@ -32,15 +36,16 @@ class DebundlerMaker(object):
                                          self.genKeys())
 
     def genKeys(self):
-        keybytes = os.urandom(16)
-        ivbytes = os.urandom(16)
-        hmackeybytes = os.urandom(16)
-        if self.key and self.iv and self.hmac_key:
-            self.logger.info("Rotating keys. Old key was %s, old hmac key was %s and old IV was %s", self.key, self.iv, self.hmac_key)
 
-        self.hmac_key = keybytes.encode('hex')
-        self.key = keybytes.encode("hex")
-        self.iv = ivbytes.encode("hex")
+        key_bytes = os.urandom(16)
+        iv_bytes = os.urandom(16)
+        hmac_key_bytes = os.urandom(16)
+        if self.key and self.iv and self.hmac_key:
+            logging.info("Rotating keys. Old key was %s, old hmac key was %s and old IV was %s", self.key, self.iv.encode("hex"), self.hmac_key)
+
+        self.hmac_key = hmac_key_bytes.encode('hex')
+        self.key = key_bytes.encode("hex")
+        self.iv = iv_bytes.encode("hex")
 
 class VedgeManager(object):
     def __init__(self, vedge_data):
@@ -53,7 +58,7 @@ class VedgeManager(object):
 
 class DebundlerServer(flask.Flask):
 
-    def __init__(self, bundler_url, salt, refresh_period,
+    def __init__(self, salt, refresh_period, remap_rules,
                  debundler_maker, vedge_manager, template_directory=""):
         super(DebundlerServer, self).__init__("DebundlerServer")
         if template_directory:
@@ -62,7 +67,6 @@ class DebundlerServer(flask.Flask):
         self.vedge_manager = vedge_manager
         self.bundles = collections.defaultdict(dict)
 
-        self.bundler_url = bundler_url
         self.salt = salt
         self.refresh_period = refresh_period
 
@@ -73,6 +77,7 @@ class DebundlerServer(flask.Flask):
         self.route("/_bundle/")(self.serveBundle)
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
+        self.bundleMaker = BundleMaker(remap_rules)
 
     def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
@@ -89,32 +94,34 @@ class DebundlerServer(flask.Flask):
             del(self.bundles[url])
         return len(delete_list)
 
-    def genBundle(self, host, path):
-        bundle_s = requests.Session()
-        logging.debug("Bundle request path is %s",  path)
-        if not path:
-            path = "/"
-        elif not path.startswith("/"):
-            path = "/" + path
+    def genBundle(self, frequest, path, key, iv, hmac_key):
+        request_host = frequest.headers.get('Host')
 
-        url = "%s%s" % (host, path)
-        #TODO add to a config file per-site
-        url_scheme = "http://"
+        logging.debug("Bundle request url is %s",  frequest.url)
+        bundler_result = self.bundleMaker.createBundle( frequest,
+                                                        key,
+                                                        iv,
+                                                        hmac_key
+                                                        )
 
-        bundle_s.headers.update({"Host": host})
-        bundle_get = bundle_s.get(self.bundler_url + "%s%s" % (url_scheme, url))
-
-        if bundle_get.status_code > 400:
-            logging.error("Failed to get bundle for %s: %s (%s)", url,
-                          bundle_get.text, bundle_get.status_code)
+        if not bundler_result:
+            logging.error("Failed to get bundle for %s: %s (%s)", frequest.url)
             flask.abort(503)
+        logging.debug("Bundle constructed and returned")
 
-        bundle_content = bundle_get.text
-        bundle_signature = hashlib.sha512( self.salt + bundle_content).hexdigest()
-
+        #Not 1 thousand percent sure this is the same as what you
+        # are currently saving so needs to be rechecked
+        logging.info("hmac_sig: %s", bundler_result['hmac_sig'])
+        rendered_bundle = flask.render_template(
+                            "bundle.json",
+                            encrypted = bundler_result['bundle'],
+                            hmac = bundler_result['hmac_sig']
+                            )
+        bundle_content = rendered_bundle
+        bundle_signature = hashlib.sha512(self.salt + bundle_content).hexdigest()
         self.redis.sadd("bundles", bundle_signature)
         self.redis.set(bundle_signature, json.dumps({
-            "host": host,
+            "host": request_host,
             "path": path,
             "bundle": bundle_content,
             "fetched": time.time()
@@ -139,7 +146,6 @@ class DebundlerServer(flask.Flask):
             return resp
 
     def rootRoute(self, path):
-
         if path.startswith("_bundle"):
             logging.debug("Got a _bundle request at %s", path)
             if "/" not in path:
@@ -147,7 +153,7 @@ class DebundlerServer(flask.Flask):
                 flask.abort(503)
             return self.serveBundle(path.split("/")[1])
         else:
-            v_edge = self.vedge_manager.getVedge()[0]
+            v_edge = self.vedge_manager.getVedge()
             key = self.debundler_maker.key
             iv = self.debundler_maker.iv
             hmac_key = self.debundler_maker.hmac_key
@@ -158,9 +164,8 @@ class DebundlerServer(flask.Flask):
             #DEBUG given that we're doing a dumb example here, let's just
             #use the first bundle we have
             request_host = flask.request.headers.get('Host')
-            url = request_host.format(path, key, iv, hmac_key)
 
-            self.logging.debug("Request is for %s", url)
+            logging.debug("Request is for %s", flask.request.url)
 
             #TODO set cookies here
             #flask.request.cookies.get()
@@ -169,22 +174,28 @@ class DebundlerServer(flask.Flask):
             bundlehash = None
             for storedbundlehash in self.redis.smembers("bundles"):
                 if self.redis.exists(storedbundlehash):
+                    logging.debug("Found bundle in redis")
                     redis_data = json.loads(self.redis.get(storedbundlehash))
                     if redis_data["host"] == request_host and redis_data["path"] == path:
+                        logging.debug("Bundle matches current request")
                         bundlehash = storedbundlehash
                         break
 
             if not bundlehash:
-                bundlehash = self.genBundle(request_host, path)
+                logging.debug("No bundle hash found. Request new bundle")
+                bundlehash = self.genBundle(flask.request, path, 
+                                            key, iv, hmac_key)
 
             if not self.redis.sismember("bundles", bundlehash) or not self.redis.exists(bundlehash):
                 logging.error("Site not in bundles after bundling was requested!!")
 
 
+            logging.debug("Return found bundle")
             render_result = flask.render_template(
             	"debundler_template.html.j2",
-            	hmac_key=unicode(self.hmac_key),
-        	key=unicode(key),iv=unicode(iv), v_edge=unicode(v_edge),
+            	hmac_key=unicode(hmac_key),
+        	key=unicode(key),iv=unicode(iv), 
+                v_edge=unicode(v_edge),
             	bundle_signature=bundlehash)
 
 
@@ -205,20 +216,22 @@ class bundleManagerDaemon():
     def run(self):
 
         port = self.config["general"]["port"]
+        host = self.config["general"]["host"]
         url_salt = self.config["general"]["url_salt"]
 
-        bundler_url = self.config["general"]["bundler_path"]
         refresh_period = self.config["general"]["refresh_period"]
         template_directory = self.config["general"]["template_directory"]
 
         vedge_data = self.config["v_edges"]
+        remap_rules = self.config["remap"]
 
         d = DebundlerMaker(refresh_period)
         v = VedgeManager(vedge_data)
-        self.debundleServer = DebundlerServer(bundler_url, url_salt, refresh_period,
-                                              d, v, template_directory=template_directory)
+        self.debundleServer = DebundlerServer(url_salt, refresh_period, 
+                                            remap_rules, d, v,
+                                            template_directory=template_directory)
         logging.info("Starting to serve on port %d", port)
-        self.debundleServer.run(debug=True, threaded=True, port=port, use_reloader=False)
+        self.debundleServer.run(debug=True, threaded=True, host=host, port=port, use_reloader=False)
 
     def delpid(self):
         if os.path.exists(self.pidfile):
@@ -340,8 +353,9 @@ if __name__ == "__main__":
     logging.info("Loading config from %s", args.config_path)
     config = yaml.load(open(args.config_path).read())
 
+    #TODO Dropping here breaks binding to ports less than 1025
     dropPrivileges(config["general"]["uid_name"],
-                    config["general"]["gid_name"])
+                   config["general"]["gid_name"])
 
     pidfile = config['general']['pidfile']
     daemon = bundleManagerDaemon(pidfile, config)

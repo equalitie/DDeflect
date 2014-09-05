@@ -1,17 +1,21 @@
 ---
 general:
-  bundler_path: http://localhost:8099/?url={path}&key={key}&iv={iv}&hmackey={hmackey}
   url_salt: feise4iephohng4ahteequu3paKoaQuaeviashim
   hmac_key: f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7
+  host: 127.0.0.1
   port: 8000
   refresh_period: 1800
-  template_directory: ../lib/templates/
+  template_directory: lib/templates/
   pidfile: /var/run/bundlemanager/bundlemanager.pid
   uid_name: nobody
   gid_name: nogroup
 
 v_edges:
-  "vedge_1":
+  "http://127.0.0.1:8000":
     availability:
       start: ""
       end: ""
+
+remap:
+  "nosmo.me":
+    origin: "www.nosmo.me"
