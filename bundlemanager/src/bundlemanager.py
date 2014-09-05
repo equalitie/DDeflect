@@ -20,7 +20,7 @@ import threading
 import logging
 import logging.handlers
 
-from lib.bundler import BundleMaker
+from bundler import BundleMaker
 from ghost import Ghost
 
 class DebundlerMaker(object):
@@ -82,17 +82,51 @@ class DebundlerServer(flask.Flask):
     def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
 
-    def cleanBundles(self, stale_time=600):
-        #DEPRECATED, replaced by redis expiry
-        delete_list = []
+    def _bundleSigContentOnly(self, request, bundle_content):
+        return hashlib.sha512(self.salt + bundle_content).hexdigest()
 
-        for url, url_data in self.bundles.iteritems():
-            if (url_data["fetched"] + stale_time) < time.time():
-                delete_list.append(url)
+    def _bundleSigContentUserAgentIP(self, request, bundle_content):
+        return hashlib.sha512(
+            self.salt + bundle_content + request.user_agent.string + request.environ['REMOTE_ADDR']
+        ).hexdigest()
 
-        for url in delete_list:
-            del(self.bundles[url])
-        return len(delete_list)
+    def _bundleSigContentUserAgentIPCookies(self, request, bundle_content):
+
+        #Mash together all cookies
+        cookie_string = "".join([ i for i in request.headers.keys() ])
+        cookie_string += "".join([ i for i in str(request.headers.values()) ])
+
+        return hashlib.sha512(
+            self.salt + bundle_content + request.user_agent.string + \
+            cookie_string + request.environ['REMOTE_ADDR']
+        ).hexdigest()
+
+    def _bundleSigContentUserAgentCookies(self, request, bundle_content):
+
+        #Mash together all cookies
+        cookie_string = "".join([ i for i in request.headers.keys() ])
+        cookie_string += "".join([ i for i in str(request.headers.values()) ])
+
+        return hashlib.sha512(
+            self.salt + bundle_content + request.user_agent.string + \
+            cookie_string
+        ).hexdigest()
+
+    def _bundleSigContentUserAgentIPHeaders(self, request, bundle_content):
+        """ The most "secure" mechanism """
+
+        #munge together all header strings. It's not pretty, but it'll
+        #do something.
+        header_string = "".join([ i for i in request.headers.keys() ])
+        header_string += "".join([ i for i in str(request.headers.values()) ])
+
+        return hashlib.sha512(
+            self.salt + bundle_content + request.user_agent.string + \
+            request.environ['REMOTE_ADDR'] + header_string
+        ).hexdigest()
+
+    def genBundleHash(self, request, bundle):
+        return self._bundleSigContentUserAgentCookies(request, bundle)
 
     def genBundle(self, frequest, path, key, iv, hmac_key):
         request_host = frequest.headers.get('Host')
@@ -102,7 +136,7 @@ class DebundlerServer(flask.Flask):
                                                         key,
                                                         iv,
                                                         hmac_key
-                                                        )
+        )
 
         if not bundler_result:
             logging.error("Failed to get bundle for %s: %s (%s)", frequest.url)
@@ -118,7 +152,7 @@ class DebundlerServer(flask.Flask):
                             hmac = bundler_result['hmac_sig']
                             )
         bundle_content = rendered_bundle
-        bundle_signature = hashlib.sha512(self.salt + bundle_content).hexdigest()
+        bundle_signature = self.genBundleHash(frequest, rendered_bundle)
         self.redis.sadd("bundles", bundle_signature)
         self.redis.set(bundle_signature, json.dumps({
             "host": request_host,
@@ -176,6 +210,7 @@ class DebundlerServer(flask.Flask):
                 if self.redis.exists(storedbundlehash):
                     logging.debug("Found bundle in redis")
                     redis_data = json.loads(self.redis.get(storedbundlehash))
+                    #TODO this is insecure and not matching with the signature generation
                     if redis_data["host"] == request_host and redis_data["path"] == path:
                         logging.debug("Bundle matches current request")
                         bundlehash = storedbundlehash
@@ -183,7 +218,7 @@ class DebundlerServer(flask.Flask):
 
             if not bundlehash:
                 logging.debug("No bundle hash found. Request new bundle")
-                bundlehash = self.genBundle(flask.request, path, 
+                bundlehash = self.genBundle(flask.request, path,
                                             key, iv, hmac_key)
 
             if not self.redis.sismember("bundles", bundlehash) or not self.redis.exists(bundlehash):
@@ -192,12 +227,11 @@ class DebundlerServer(flask.Flask):
 
             logging.debug("Return found bundle")
             render_result = flask.render_template(
-            	"debundler_template.html.j2",
-            	hmac_key=unicode(hmac_key),
-        	key=unicode(key),iv=unicode(iv), 
+                "debundler_template.html.j2",
+                hmac_key=unicode(hmac_key),
+                key=unicode(key),iv=unicode(iv),
                 v_edge=unicode(v_edge),
-            	bundle_signature=bundlehash)
-
+                bundle_signature=bundlehash)
 
             resp = flask.Response(render_result, status=200)
             #response.set_cookie(
@@ -227,7 +261,7 @@ class bundleManagerDaemon():
 
         d = DebundlerMaker(refresh_period)
         v = VedgeManager(vedge_data)
-        self.debundleServer = DebundlerServer(url_salt, refresh_period, 
+        self.debundleServer = DebundlerServer(url_salt, refresh_period,
                                             remap_rules, d, v,
                                             template_directory=template_directory)
         logging.info("Starting to serve on port %d", port)
