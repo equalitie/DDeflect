@@ -195,10 +195,7 @@ class DebundlerServer(flask.Flask):
             if not path:
                 path = "/"
 
-            #DEBUG given that we're doing a dumb example here, let's just
-            #use the first bundle we have
             request_host = flask.request.headers.get('Host')
-
             logging.debug("Request is for %s", flask.request.url)
 
             #TODO set cookies here
@@ -212,7 +209,7 @@ class DebundlerServer(flask.Flask):
                     redis_data = json.loads(self.redis.get(storedbundlehash))
                     #TODO this is insecure and not matching with the signature generation
                     if redis_data["host"] == request_host and redis_data["path"] == path:
-                        logging.debug("Bundle matches current request")
+                        logging.debug("Bundle %s matches current request", storedbundlehash)
                         bundlehash = storedbundlehash
                         break
 
@@ -225,7 +222,6 @@ class DebundlerServer(flask.Flask):
                 logging.error("Site not in bundles after bundling was requested!!")
 
 
-            logging.debug("Return found bundle")
             render_result = flask.render_template(
                 "debundler_template.html.j2",
                 hmac_key=unicode(hmac_key),
