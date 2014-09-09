@@ -52,7 +52,7 @@ class BundleMaker(object):
         self.hmackey = None
         self.remap_rules = remap_rules
 
-    def createBundle(self, request, key, iv, hmackey):
+    def createBundle(self, request, remap_host, key, iv, hmackey):
         """
         This is function which ties it altogether
         primarily this is process manager function.
@@ -75,10 +75,10 @@ class BundleMaker(object):
 
         #Pass through request headers directly like a proper proxy
         headers = { 
-            'host': request.headers['host']
+            'host': request.headers.get('host')
         }
         logging.info('Getting remap rule for request')
-        remapped_url = self.remapReqURL(request, request.headers['host'])
+        remapped_url = self.remapReqURL(remap_host, request)
         if not remapped_url:
             logging.error('No remap rule found for: %s', request.headers['host'])
             return None
@@ -102,12 +102,12 @@ class BundleMaker(object):
             "hmac_sig": hmac_sig
         }
 
-    def remapReqURL(self, request, host):
+    def remapReqURL(self, remap_domain, request):
         """
         Remap given url based on rules defined by
         conf file
         """
-        remap_domain = self.remap_rules[host]
+        host = request.headers['host']
         full_path = ''
         if '?' in request.url:
             pos = request.url.rfind(request.path)
@@ -116,11 +116,7 @@ class BundleMaker(object):
             full_path = request.path
         logging.info('URL path: %s', full_path)
 
-        if remap_domain:                    
-            return "http://{0}{1}".format(remap_domain['origin'], full_path)
-        else:
-            logging.error('No remap rule found for host: %s', host)
-            return None
+        return "http://{0}{1}".format(remap_domain['origin'], full_path)
 
     def getResourceDomain(self, url):
         """
