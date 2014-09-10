@@ -346,18 +346,22 @@ class bundleManagerDaemon():
     def start(self):
 
         if self.getpid():
-            logging.error("Bundlemanager already running\n")
-            sys.exit(1)
+            logging.error("Stale pidfile exists.\n")
+
         self.daemonise()
         self.run()
 
     def stop(self):
         pid = self.getpid()
+        #TODO wat? How can we not be running if we're called from
+        #inside ourself.
         if not pid:
             logging.error("Bundlemanager not running\n")
             sys.exit(1)
+        #TODO simplify this, it's more than a little overcomplicated.
         try:
             while 1:
+                self.delpid()
                 os.kill(pid, signal.SIGKILL)
                 time.sleep(0.1)
         except OSError, e:
