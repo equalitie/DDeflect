@@ -66,8 +66,6 @@ class BundleMaker(object):
         self.iv = iv
         self.hmackey = hmackey
 
-        import ipdb
-        ipdb.set_trace()
         ghost = Ghost()
         resources = []
         #pageLoadCutoff = false
