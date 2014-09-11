@@ -19,6 +19,7 @@ import signal
 import threading
 import logging
 import logging.handlers
+from datetime import datetime, time
 
 from lib.bundler import BundleMaker
 from ghost import Ghost
@@ -50,10 +51,54 @@ class DebundlerMaker(object):
 class VedgeManager(object):
     def __init__(self, vedge_data):
         self.vedge_data = vedge_data
+        self.redis = redis.Redis()
+
+    def populateRedisVEdges(self):
+        """
+        Set initial values for v-edges in redis
+        storing time windows and bandwidth constraints
+        """
+        for edge in self.vedge_data:
+            value = json.dumps({
+                "start": edge['availability']['start'],
+                "end": edge['availability']['end'],
+                "total_bandiwdth": edge['total_bandwidth'],
+                "used_bandwidth": 0,
+                "last_request": time.time()
+            })
+            self.redis.sadd("vedges", edge.key())
+            self.redis.set(edge.key(), value)
+
+            now = datetime.utcnow()
+            now_time = now.time()
+
+            start = time.strptime(edge['availability']['start'], "%H:%M")
+            end = time.strptime(edge['availability']['end'], "%H:%M")
+
+            if now_time >= start and now_time <= end:
+                expiration = now.replace(
+                                    hour = end.hour, 
+                                    minute = end.minute
+                            ) 
+                active_key = edge.key() + '_active'
+                self.redis.sadd("active_vedges", active_key)
+                self.redis.set(active_key, value)
+                self.redis.expire(active_key, expiration)
+
+        # Create active set and copy store to it
+        # with expiration for keys
+        # key should be delted for bandwidth when that quantity is reached
+        # in terms of bandwidth, this should be handled by the badnwidth 
+        # recorder
+
 
     def getVedge(self):
-        #TODO read the vedge_data to figure out when we should serve
-        #via a particular edge etc etc
+        """
+        This function selects v-edges based on
+        their current availability, the time last accessed,
+        and the total bandwidth available
+        """
+        # pop first element in sorted list, reset timestamp
         return self.vedge_data.keys()[0]
 
 class DebundlerServer(flask.Flask):
