@@ -5,34 +5,35 @@
 
 - name: Make SSL directory
   file: dest=/etc/trafficserver/ssl state=directory owner={{trafficserver_user}} group={{trafficserver_group}}
-
-- debug: msg="ssl cert is {{item.value.ssl_cert}}"
-  with_dict: remap
-  when: item.value.https == True
+  tags: ats
 
 - name: Install user certs
   synchronize: src={{item.value.ssl_cert}} dest=/etc/trafficserver/ssl/ #owner={{trafficserver_user}} group={{trafficserver_group}}
   with_dict: remap
   when: item.value.https == True
-
-- file: dest=/etc/trafficserver/ssl/{{item.value.ssl_cert}} owner={{trafficserver_user}} group={{trafficserver_group}} mode=700
-  with_dict: remap
-  when: item.value.https == True
+  tags: ats
 
 - name: Install user keys
   synchronize: src={{item.value.ssl_key}} dest=/etc/trafficserver/ssl/{{item.value.ssl_key}} #owner={{trafficserver_user}} group={{trafficserver_group}}
   with_dict: remap
   when: item.value.https == True
-
-- file: dest=/etc/trafficserver/ssl/{{item.value.ssl_key}} owner={{trafficserver_user}} group={{trafficserver_group}} mode=700
-  with_dict: remap
-  when: item.value.https == True
+  tags: ats
 
 - name: Install user CA bundles
   synchronize: src={{item.value.ssl_ca}} dest=/etc/trafficserver/ssl/{{item.value.ssl_ca}}
   with_dict: remap
   when: item.value.https == True and "ssl_ca" in item.value
+  tags: ats
 
-- file: dest=/etc/trafficserver/ssl/{{item.value.ssl_ca}} owner={{trafficserver_user}} group={{trafficserver_group}} mode=700
-  with_dict: remap
-  when: item.value.https == True
+- name: Install default SSL stuff
+  tags: ats
+  synchronize: src={{default_ssl_key}} dest=/etc/trafficserver/ssl/{{default_ssl_key}}
+- synchronize: src={{default_ssl_cert}} dest=/etc/trafficserver/ssl/{{default_ssl_cert}}
+  tags: ats
+- synchronize: src={{default_ssl_ca}} dest=/etc/trafficserver/ssl/{{default_ssl_ca}}
+  tags: ats
+
+- file: dest=/etc/trafficserver/ssl/{{item}} owner={{trafficserver_user}} group={{trafficserver_group}} mode=700
+  with_fileglob:
+    - /etc/trafficserver/ssl/*
+  tags: ats
