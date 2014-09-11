@@ -60,7 +60,7 @@ class BundleMaker(object):
         Input: Request to bundle, encryption keys
         Output: Encrypted bundle, hmac signature
         """
-        logging.info("Processing request for: %s", request.url)
+        logging.debug("Processing request for: %s", request.url)
 
         self.key = key
         self.iv = iv
@@ -71,32 +71,32 @@ class BundleMaker(object):
         #pageLoadCutoff = false
         resourceDomain = 'localhost/' #self.getResourceDomain(request.url)
 
-        logging.info("Retrieved resource domain as: %s", resourceDomain)
+        logging.debug("Retrieved resource domain as: %s", resourceDomain)
 
         #Pass through request headers directly like a proper proxy
         headers = {
             'host': request.headers.get('host')
         }
-        logging.info('Getting remap rule for request')
+        logging.debug('Getting remap rule for request')
         remapped_url = self.remapReqURL(remap_host, request)
         if not remapped_url:
             logging.error('No remap rule found for: %s', request.headers['host'])
             return None
 
-        logging.info("Attempting to load remapped page: %s", remapped_url)
+        logging.debug("Attempting to load remapped page: %s", remapped_url)
         page, ext_resources = ghost.open(remapped_url, headers=headers)
-        logging.info("Request returned with status: %s", page.http_status)
+        logging.debug("Request returned with status: %s", page.http_status)
 
         resources = self.fetchResources(ext_resources, resourceDomain)
 
-        logging.info('Resources Collected')
+        logging.debug('Resources Collected')
 
         resources = self.replaceResources(resources)
-        logging.info('Resources replaced')
+        logging.debug('Resources replaced')
         bundle = self.encryptBundle(resources[0]['content'])
-        logging.info('Bundle encrypted')
+        logging.debug('Bundle encrypted')
         hmac_sig = self.signBundle(bundle)
-        logging.info('Bundle signed - and now they know when in memory to look :(')
+        logging.debug('Bundle signed - and now they know when in memory to look :(')
         return {
             "bundle": bundle,
             "hmac_sig": hmac_sig
@@ -114,7 +114,7 @@ class BundleMaker(object):
             full_path = request.url[:pos]
         else:
             full_path = request.path
-        logging.info('URL path: %s', full_path)
+        logging.debug('URL path: %s', full_path)
 
         return "http://{0}{1}".format(remap_domain['origin'], full_path)
 
@@ -210,7 +210,7 @@ class BundleMaker(object):
                     content = base64.b64encode(resourcePage.content)
 
                 if resourcePage.status_code == requests.codes.ok:
-                    logging.info('Get resource: %s', str(r.url))
+                    logging.debug('Get resource: %s', str(r.url))
                     new_resources.append(
                         {
                             "content": content,
@@ -259,14 +259,14 @@ class BundleMaker(object):
         There is a flaw in this system.
         """
         for r in reversed(resources):
-            logging.info('Testing resource: [%s] ', r['url'])
+            logging.debug('Testing resource: [%s] ', r['url'])
             if not r['content'] or r['content'] < 262144:
                 continue
             if r['url'] != resources[0]['url']:
                 if not self.isSearchableFile(r['url']):
                     continue
 
-            logging.info('Scanning resource: [%s] ', r['url'])
+            logging.debug('Scanning resource: [%s] ', r['url'])
             for j in reversed(resources):
                 if j['url'] == resources[0]['url']:
                     continue
@@ -277,7 +277,7 @@ class BundleMaker(object):
 
                 filename = filename[1:]
 
-                logging.info('Bundling resource: [%s]', j['url'])
+                logging.debug('Bundling resource: [%s]', j['url'])
 
                 dataURI = self.convertToDataUri(
                     j['content'],
@@ -298,7 +298,7 @@ class BundleMaker(object):
                 r['content'] = resourcePattern2.sub(
                     '(' + dataURI + ')', r['content']
                 )
-                logging.info('Bundle created for resource: [%s] ', r['url'])
+                logging.debug('Bundle created for resource: [%s] ', r['url'])
         return resources
 
     def convertToDataUri(self, content, extension):
