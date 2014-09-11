@@ -75,7 +75,9 @@ class BundleMaker(object):
 
         #Pass through request headers directly like a proper proxy
         headers = {
-            'host': request.headers.get('host')
+            #TODO we break IDNs here - allowing this to pass as a
+            #simple unicode object instead of a string breaks stuff.
+            'Host': str(request.headers.get('host'))
         }
         logging.debug('Getting remap rule for request')
         remapped_url = self.remapReqURL(remap_host, request)
@@ -87,7 +89,7 @@ class BundleMaker(object):
         page, ext_resources = ghost.open(remapped_url, headers=headers)
         logging.debug("Request returned with status: %s", page.http_status)
 
-        resources = self.fetchResources(ext_resources, resourceDomain)
+        resources = self.fetchResources(ext_resources, resourceDomain, remap_host)
 
         logging.debug('Resources Collected')
 
@@ -183,7 +185,7 @@ class BundleMaker(object):
             output.write('%02x' % val)
         return text + binascii.unhexlify(output.getvalue())
 
-    def fetchResources(self, resources, resourceDomain):
+    def fetchResources(self, resources, resourceDomain, remap_host):
         """
         Based on the list of resources provided go and retrieve the physical
         content for each of these pages. Provided to this function are the
@@ -198,29 +200,29 @@ class BundleMaker(object):
         for r in resources:
             #This is not very intelligent, as it heavily restricts using
             #your own CDN for example
-                resourcePage = requests.get(
-                    str(r.url),
-                    timeout=8
+            resourcePage = requests.get(
+                str(r.url),
+                timeout=8
+            )
+
+            content = ''
+            if self.isSearchableFile(str(r.url)) or r.url == resources[0].url:
+                content = resourcePage.content.encode('utf8')
+            else:
+                content = base64.b64encode(resourcePage.content)
+
+            if resourcePage.status_code == requests.codes.ok:
+                logging.debug('Get resource: %s', str(r.url))
+                new_resources.append(
+                    {
+                        "content": content,
+                        "url": resourcePage.url
+                    }
                 )
-
-                content = ''
-                if self.isSearchableFile(str(r.url)) or r.url == resources[0].url:
-                    content = resourcePage.content.encode('utf8')
-                else:
-                    content = base64.b64encode(resourcePage.content)
-
-                if resourcePage.status_code == requests.codes.ok:
-                    logging.debug('Get resource: %s', str(r.url))
-                    new_resources.append(
-                        {
-                            "content": content,
-                            "url": resourcePage.url
-                        }
-                    )
-                else:
-                    logging.error('Failed to get resource: %s',str(r.url))
-                    #log error, son
-                    return ''
+            else:
+                logging.error('Failed to get resource: %s',str(r.url))
+                #log error, son
+                return ''
         return new_resources
 
     def isSearchableFile(self, url):
