@@ -52,6 +52,7 @@ class VedgeManager(object):
     def __init__(self, vedge_data):
         self.vedge_data = vedge_data
         self.redis = redis.Redis()
+        self.vedge_threshold = 100
 
     def populateRedisVEdges(self):
         """
@@ -90,6 +91,12 @@ class VedgeManager(object):
         # in terms of bandwidth, this should be handled by the badnwidth 
         # recorder
 
+    def refreshVedges(self):
+        """
+        Rebuild v-edge list is number of available v-edges 
+        has slipped below predefined threshold
+        """
+        pass
 
     def getVedge(self):
         """
@@ -98,6 +105,8 @@ class VedgeManager(object):
         and the total bandwidth available
         """
         # pop first element in sorted list, reset timestamp
+        if self.redis.llen("active_vedges") < self.vedge_threshold:
+            self.refresh_vedges()
         vedge = json.loads( self.redis.srandmember("active_vedges") )
         return vedge
 
