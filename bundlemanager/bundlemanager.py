@@ -63,8 +63,7 @@ class VedgeManager(object):
                 "start": edge['availability']['start'],
                 "end": edge['availability']['end'],
                 "total_bandiwdth": edge['total_bandwidth'],
-                "used_bandwidth": 0,
-                "last_request": time.time()
+                "used_bandwidth": 0
             })
             self.redis.sadd("vedges", edge.key())
             self.redis.set(edge.key(), value)
@@ -99,7 +98,8 @@ class VedgeManager(object):
         and the total bandwidth available
         """
         # pop first element in sorted list, reset timestamp
-        return self.vedge_data.keys()[0]
+        vedge = json.loads( self.redis.srandmember("active_vedges") )
+        return vedge
 
 class DebundlerServer(flask.Flask):
 
