@@ -106,7 +106,7 @@ class VedgeManager(object):
         """
         # pop first element in sorted list, reset timestamp
         if self.redis.llen("active_vedges") < self.vedge_threshold:
-            self.refresh_vedges()
+            self.refreshVedges()
         vedge = json.loads( self.redis.srandmember("active_vedges") )
         return vedge
 
