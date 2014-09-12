@@ -85,6 +85,8 @@ class VedgeManager(object):
                 self.redis.set(active_key, value)
                 self.redis.expire(active_key, expiration)
 
+            #Build special set for quick lookup of time windows, represent as hash set
+
         # Create active set and copy store to it
         # with expiration for keys
         # key should be delted for bandwidth when that quantity is reached
