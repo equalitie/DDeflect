@@ -4,6 +4,7 @@
 """
 Python modules
 """
+import urlparse
 import hmac
 import hashlib
 import mimetypes
@@ -69,29 +70,32 @@ class BundleMaker(object):
         ghost = Ghost()
         resources = []
         #pageLoadCutoff = false
-        resourceDomain = 'localhost/' #self.getResourceDomain(request.url)
+        resourceDomain = self.getResourceDomain(request.url)
 
         logging.debug("Retrieved resource domain as: %s", resourceDomain)
 
         #Pass through request headers directly like a proper proxy
+        #TODO pass other headers here, don't just discard them
         headers = {
             #TODO we break IDNs here - allowing this to pass as a
             #simple unicode object instead of a string breaks stuff.
             'Host': str(request.headers.get('host'))
         }
         logging.debug('Getting remap rule for request')
-        remapped_url = self.remapReqURL(remap_host, request)
+        remapped_url = self.remapReqURL(remap_host, request.path, request.url)
         if not remapped_url:
             logging.error('No remap rule found for: %s', request.headers['host'])
             return None
 
         logging.debug("Attempting to load remapped page: %s", remapped_url)
+        logging.debug("Headers are %s", str(headers))
+        #TODO catch exceptions here
         page, ext_resources = ghost.open(remapped_url, headers=headers)
         logging.debug("Request returned with status: %s", page.http_status)
 
         resources = self.fetchResources(ext_resources, resourceDomain, remap_host)
 
-        logging.debug('Resources Collected')
+        logging.debug('Collected %s resources', len(resources))
 
         resources = self.replaceResources(resources)
         logging.debug('Resources replaced')
@@ -104,21 +108,18 @@ class BundleMaker(object):
             "hmac_sig": hmac_sig
         }
 
-    def remapReqURL(self, remap_domain, request):
+    def remapReqURL(self, remap_domain, request_path, request_url):
         """
         Remap given url based on rules defined by
         conf file
         """
-        host = request.headers['host']
-        full_path = ''
-        if '?' in request.url:
-            pos = request.url.rfind(request.path)
-            full_path = request.url[:pos]
-        else:
-            full_path = request.path
-        logging.debug('URL path: %s', full_path)
 
-        return "http://{0}{1}".format(remap_domain['origin'], full_path)
+        parsed_url = urlparse.urlparse(request_url)
+
+        return "{0}://{1}{2}{3}".format(parsed_url.scheme, 
+                                        remap_domain['origin'], 
+                                        parsed_url.path, 
+                                        "?%s" % parsed_url.query if parsed_url.query else "")
 
     def getResourceDomain(self, url):
         """
@@ -200,14 +201,22 @@ class BundleMaker(object):
         for r in resources:
             #This is not very intelligent, as it heavily restricts using
             #your own CDN for example
+
+            parsed_url = urlparse.urlparse(r.url)
+            logging.debug("Resource URL is %s, remap_host is %s", r.url, remap_host["origin"])
+            remapped_url = self.remapReqURL(remap_host, parsed_url.path, r.url)
+            logging.debug("Attempting to get remapped resource url %s, resourceDomain %s", remapped_url, resourceDomain)
             resourcePage = requests.get(
-                str(r.url),
-                timeout=8
-            )
+                str(remapped_url),
+                #TODO copy headers from original request here
+                headers={"Host": resourceDomain.strip("/")},
+                timeout=8,
+                verify=False
+                )
 
             content = ''
             if self.isSearchableFile(str(r.url)) or r.url == resources[0].url:
-                content = resourcePage.content.encode('utf8')
+                content = resourcePage.content #.encode('utf8')
             else:
                 content = base64.b64encode(resourcePage.content)
 
@@ -222,7 +231,7 @@ class BundleMaker(object):
             else:
                 logging.error('Failed to get resource: %s',str(r.url))
                 #log error, son
-                return ''
+                
         return new_resources
 
     def isSearchableFile(self, url):
@@ -241,9 +250,9 @@ class BundleMaker(object):
 	    ext = ext.group()
 	    if ext[-1] == '?':
 	        ext = ext[:-1];
-	    if BundleMaker.reMatchMime.search(
-                 mimetypes.types_map[ext]
-            ):
+	    if (ext in mimetypes.types_map and BundleMaker.reMatchMime.search(
+                 mimetypes.types_map[ext])
+            ) or ext in [".php", ".html", ".css", ".json"]:
 	        return True
 	return False
 
@@ -260,6 +269,8 @@ class BundleMaker(object):
 
         There is a flaw in this system.
         """
+	data_uris = {}
+        import ipdb
         for r in reversed(resources):
             logging.debug('Testing resource: [%s] ', r['url'])
             if not r['content'] or r['content'] < 262144:
@@ -270,35 +281,42 @@ class BundleMaker(object):
 
             logging.debug('Scanning resource: [%s] ', r['url'])
             for j in reversed(resources):
+                ipdb.set_trace()
                 if j['url'] == resources[0]['url']:
                     continue
+                # This regex needs to be reconsidered
+                # at present just take the last element of the returned list
                 filename = BundleMaker.reCatchUri.findall(j['url'])
-                filename = filename[1][0] + filename[1][1]
+		
+                filename = filename[-1][0] + filename[-1][1]
 
                 if not BundleMaker.reTestForFile.search(filename): continue
 
                 filename = filename[1:]
 
                 logging.debug('Bundling resource: [%s]', j['url'])
-
-                dataURI = self.convertToDataUri(
-                    j['content'],
-                    filename
-                )
+		if filename not in data_uris:
+                    data_uris[filename] = self.convertToDataUri(
+                        j['content'],
+                        filename
+                    )
 
                 filename = filename.replace('?', '\?')
+                print "Filename is %s" % filename
+                # Error caused by first star in python 2.7.3
+                # Removed it and functionality seems uneffected
                 resourcePattern1 = re.compile(
-                    '(\'|")(\w|:|\/|-|@|\.*)*' + filename + '(\'|\")'
+                    '(\'|")(\w|:|\/|-|@|\.)*' + filename + '(\'|\")'
                 )
                 resourcePattern2 = re.compile(
-                    '\((\w|:|\/|-|@|\.*)*' + filename + '\)'
+                    '\((\w|:|\/|-|@|\.)*' + filename + '\)'
                 )
 
                 r['content'] = resourcePattern1.sub(
-                    '"' + dataURI + '"', r['content']
+                    '"' + data_uris[filename] + '"', r['content']
                 )
                 r['content'] = resourcePattern2.sub(
-                    '(' + dataURI + ')', r['content']
+                    '(' + data_uris[filename] + ')', r['content']
                 )
                 logging.debug('Bundle created for resource: [%s] ', r['url'])
         return resources
@@ -314,8 +332,13 @@ class BundleMaker(object):
             extension = extension.group(0)
         else:
             extension = '.html'
+	
+        # Deal with files not covered by mimetypes
+        # for example .ttf
 
-        dataURI = 'data:' + mimetypes.types_map[extension] + ';base64,'
+	mimetype = mimetypes.types_map[extension] if extension in mimetypes.types_map else 'application/octet-stream'
+
+        dataURI = 'data:' + mimetype + ';base64,'
         if self.isSearchableFile(str(extension)):
             dataURI =  dataURI + base64.b64encode(content)
         else:
