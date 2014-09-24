@@ -51,8 +51,16 @@ class BundleMaker(object):
         self.iv = None
         self.hmackey = None
         self.remap_rules = remap_rules
-        self.resource_queue = Queue()
-        self.resource_result_queue = Queue()
+        self.resource_queue = Queue(maxsize=0)
+        self.resource_result_queue = Queue(maxsize=0)
+        self.main_url = None
+
+        for i in range( 20):
+            t = Thread(target=self.resourceCollectorThread)
+            t.daemon = True
+            t.start()
+
+
 
     def createBundle(self, request, remap_host, key, iv, hmackey):
         """
@@ -186,7 +194,7 @@ class BundleMaker(object):
             output.write('%02x' % val)
         return text + binascii.unhexlify(output.getvalue())
 
-    def resourceCollectorThread(self, main_url):
+    def resourceCollectorThread(self):
         """
         This method manages the task for the resource collector
         threads.
@@ -203,7 +211,7 @@ class BundleMaker(object):
             )
             
             content = ''
-            if self.isSearchableFile(url) or url == main_url:
+            if self.isSearchableFile(url) or url == self.main_url:
                 content = resourcePage.content.encode('utf8')
             else:
                 content = base64.b64encode(resourcePage.content)
@@ -231,22 +239,20 @@ class BundleMaker(object):
 
         This is a flaw and needs to be addressed more intelligently
         """
-        self.resource_queue = Queue( len(resources) )
-        self.resource_result_queue = Queue( len(resources) )
+        #self.resource_queue = Queue( len(resources) )
+        #self.resource_result_queue = Queue( len(resources) )
 
 
         logging.debug('Building resource queue')
         new_resources = []
         resource_set = []
+
+        self.main_url = resources[0].url
+
         for r in resources:
            if r.url not in resource_set:
                 resource_set.append(r.url)
                 self.resource_queue.put(str(r.url))
-
-        for i in range(len(resources)):
-            t = Thread(target=self.resourceCollectorThread, args=(str(resources[0].url),))
-            t.daemon = True
-            t.start()
 
         logging.debug('Waiting for workers to complete')
         self.resource_queue.join()
