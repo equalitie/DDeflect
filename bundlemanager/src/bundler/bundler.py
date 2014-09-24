@@ -50,7 +50,7 @@ class BundleMaker(object):
         self.hmackey = None
         self.remap_rules = remap_rules
 
-    def createBundle(self, request, key, iv, hmackey):
+    def createBundle(self, request, remap_host, key, iv, hmackey):
         """
         This is function which ties it altogether
         primarily this is process manager function.
@@ -58,51 +58,51 @@ class BundleMaker(object):
         Input: Request to bundle, encryption keys
         Output: Encrypted bundle, hmac signature
         """
-        logging.info("Processing request for: %s", request.url)
+        logging.debug("Processing request for: %s", request.url)
 
         self.key = key
         self.iv = iv
         self.hmackey = hmackey
 
-        import ipdb 
-        ipdb.set_trace()
         ghost = Ghost()
         resources = []
         #pageLoadCutoff = false
         resourceDomain = self.getResourceDomain(request.url)
 
-        logging.info("Retrieved resource domain as: %s", resourceDomain)
+        logging.debug("Retrieved resource domain as: %s", resourceDomain)
 
         #Pass through request headers directly like a proper proxy
-        headers = { 
-            'host': request.headers['host']
+        headers = {
+            #TODO we break IDNs here - allowing this to pass as a
+            #simple unicode object instead of a string breaks stuff.
+            'Host': str(request.headers.get('host'))
         }
-        logging.info('Getting remap rule for request')
-        remapped_url = self.remapReqURL(request)
+        logging.debug('Getting remap rule for request')
+        remapped_url = self.remapReqURL(remap_host, request)
         if not remapped_url:
             logging.error('No remap rule found for: %s', request.headers['host'])
             return None
-        
-        logging.info("Attempting to load remapped page: %s", remapped_url)
+
+        logging.debug("Attempting to load remapped page: %s", remapped_url)
         page, ext_resources = ghost.open(remapped_url, headers=headers)
-        logging.info("Request returned with status: %s", page.http_status)
+        logging.debug("Request returned with status: %s", page.http_status)
 
-        resources = self.fetchResources(ext_resources, resourceDomain)
+        resources = self.fetchResources(ext_resources, resourceDomain, remap_host)
 
-        logging.info('Resources Collected')
+        logging.debug('Resources Collected')
 
         resources = self.replaceResources(resources)
-        logging.info('Resources replaced')
+        logging.debug('Resources replaced')
         bundle = self.encryptBundle(resources[0]['content'])
-        logging.info('Bundle encrypted')
+        logging.debug('Bundle encrypted')
         hmac_sig = self.signBundle(bundle)
-        logging.info('Bundle signed - and now they know when in memory to look :(')
+        logging.debug('Bundle signed - and now they know when in memory to look :(')
         return {
             "bundle": bundle,
             "hmac_sig": hmac_sig
         }
 
-    def remapReqURL(self, request):
+    def remapReqURL(self, remap_domain, request):
         """
         Remap given url based on rules defined by
         conf file
@@ -112,16 +112,12 @@ class BundleMaker(object):
         full_path = ''
         if '?' in request.url:
             pos = request.url.rfind(request.path)
-            full_path = request.url[:pos] 
+            full_path = request.url[:pos]
         else:
             full_path = request.path
-        logging.info('URL path: %s', full_path)
+        logging.debug('URL path: %s', full_path)
 
-        if remap_domain:                    
-            return "http://{0}{1}".format(remap_domain['origin'], full_path)
-        else:
-            logging.error('No remap rule found for host: %s', host)
-            return None
+        return "http://{0}{1}".format(remap_domain['origin'], full_path)
 
     def getResourceDomain(self, url):
         """
@@ -135,7 +131,7 @@ class BundleMaker(object):
         elif 'http' not in url:
             #TODO temporary hack because i dunno
             #this is an issue to discuss with nosmo
-            if not url.endswith("/"): 
+            if not url.endswith("/"):
                 return url + "/"
         else:
             #TOD0: Add error checking here
@@ -152,8 +148,8 @@ class BundleMaker(object):
         the bundle
         """
         return hmac.new(
-                    self.hmackey, 
-                    bundle, 
+                    self.hmackey,
+                    bundle,
                     hashlib.sha256
                 ).hexdigest()
 
@@ -167,9 +163,9 @@ class BundleMaker(object):
         iv = binascii.unhexlify(self.iv)
 
         aes = AES.new(
-                        key, 
-                        AES.MODE_CFB, 
-                        iv,             
+                        key,
+                        AES.MODE_CFB,
+                        iv,
                         segment_size=128
                     )
 
@@ -186,10 +182,10 @@ class BundleMaker(object):
             output.write('%02x' % val)
         return text + binascii.unhexlify(output.getvalue())
 
-    def fetchResources(self, resources, resourceDomain):
+    def fetchResources(self, resources, resourceDomain, remap_host):
         """
         Based on the list of resources provided go and retrieve the physical
-        content for each of these pages. Provided to this function are the 
+        content for each of these pages. Provided to this function are the
         resources as a list of strings and the resourceDomain string. The
         latter is used to ensure that only resources for the requested domain
         are bundled.
@@ -201,29 +197,29 @@ class BundleMaker(object):
         for r in resources:
             #This is not very intelligent, as it heavily restricts using
             #your own CDN for example
-                resourcePage = requests.get(
-                    str(r.url),
-                    timeout=8
+            resourcePage = requests.get(
+                str(r.url),
+                timeout=8
+            )
+
+            content = ''
+            if self.isSearchableFile(str(r.url)) or r.url == resources[0].url:
+                content = resourcePage.content.encode('utf8')
+            else:
+                content = base64.b64encode(resourcePage.content)
+
+            if resourcePage.status_code == requests.codes.ok:
+                logging.debug('Get resource: %s', str(r.url))
+                new_resources.append(
+                    {
+                        "content": content,
+                        "url": resourcePage.url
+                    }
                 )
-
-                content = ''
-                if self.isSearchableFile(str(r.url)) or r.url == resources[0].url: 
-                    content = resourcePage.content.encode('utf8')
-                else:
-                    content = base64.b64encode(resourcePage.content)
-
-                if resourcePage.status_code == requests.codes.ok:
-                    logging.info('Get resource: %s', str(r.url))
-                    new_resources.append(
-                        { 
-                            "content": content,
-                            "url": resourcePage.url
-                        }
-                    )
-                else:
-                    logging.error('Failed to get resource: %s',str(r.url))
-                    #log error, son
-                    return ''
+            else:
+                logging.error('Failed to get resource: %s',str(r.url))
+                #log error, son
+                return ''
         return new_resources
 
     def isSearchableFile(self, url):
@@ -232,7 +228,7 @@ class BundleMaker(object):
         the given url can be considered to be a parasable file, such as,
         XML, CSS or JSON, as opposed to binary data.
 
-        This function is used primarily in the replaceResources function, 
+        This function is used primarily in the replaceResources function,
         to identify files that must be parsed for occurences of references to
         other bundled resources.
         """
@@ -244,7 +240,7 @@ class BundleMaker(object):
 	        ext = ext[:-1];
 	    if BundleMaker.reMatchMime.search(
                  mimetypes.types_map[ext]
-            ): 
+            ):
 	        return True
 	return False
 
@@ -254,7 +250,7 @@ class BundleMaker(object):
         into a data URI representation and replacing all references
         within other resources.
 
-        It works as two sliding windows, moving backwards over the same list. 
+        It works as two sliding windows, moving backwards over the same list.
         The outter loop identifies resource that can contain references, such
         as CSS, XML, plain etc. The inner loop bundles each resource as a dataURI
         and then replaces all references with in the outter loop element.
@@ -262,16 +258,16 @@ class BundleMaker(object):
         There is a flaw in this system.
         """
         for r in reversed(resources):
-            logging.info('Testing resource: [%s] ', r['url'])
-            if not r['content'] or r['content'] < 262144: 
+            logging.debug('Testing resource: [%s] ', r['url'])
+            if not r['content'] or r['content'] < 262144:
                 continue
             if r['url'] != resources[0]['url']:
                 if not self.isSearchableFile(r['url']):
                     continue
 
-            logging.info('Scanning resource: [%s] ', r['url'])
-            for j in reversed(resources): 
-                if j['url'] == resources[0]['url']: 
+            logging.debug('Scanning resource: [%s] ', r['url'])
+            for j in reversed(resources):
+                if j['url'] == resources[0]['url']:
                     continue
                 filename = BundleMaker.reCatchUri.findall(j['url'])
                 filename = filename[1][0] + filename[1][1]
@@ -279,8 +275,8 @@ class BundleMaker(object):
                 if not BundleMaker.reTestForFile.search(filename): continue
 
                 filename = filename[1:]
-                
-                logging.info('Bundling resource: [%s]', j['url'])
+
+                logging.debug('Bundling resource: [%s]', j['url'])
 
                 dataURI = self.convertToDataUri(
                     j['content'],
@@ -301,7 +297,7 @@ class BundleMaker(object):
                 r['content'] = resourcePattern2.sub(
                     '(' + dataURI + ')', r['content']
                 )
-                logging.info('Bundle created for resource: [%s] ', r['url'])
+                logging.debug('Bundle created for resource: [%s] ', r['url'])
         return resources
 
     def convertToDataUri(self, content, extension):
@@ -317,10 +313,9 @@ class BundleMaker(object):
             extension = '.html'
 
         dataURI = 'data:' + mimetypes.types_map[extension] + ';base64,'
-        if self.isSearchableFile(str(extension)): 
+        if self.isSearchableFile(str(extension)):
             dataURI =  dataURI + base64.b64encode(content)
         else:
             dataURI = dataURI + content
-	
-        return dataURI
 
+        return dataURI

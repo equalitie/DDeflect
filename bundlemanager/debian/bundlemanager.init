@@ -37,9 +37,8 @@ case "$1" in
   stop)
   DAEMON_ARGS="stop"
   echo -n "Stopping $DESC: "
-  start-stop-daemon --stop --quiet --pidfile /var/run/$NAME/$NAME.pid \
-  		    --exec $DAEMON
-	echo "$NAME."
+  start-stop-daemon --stop --quiet --pidfile /var/run/$NAME/$NAME.pid
+  echo "$NAME."
   ;;
   reload)
   #

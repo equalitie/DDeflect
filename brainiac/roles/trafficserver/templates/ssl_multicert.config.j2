@@ -1,9 +1,9 @@
 {% for site, attributes in remap.iteritems() %}
-{% if "ssl_cert" in attributes and "ssl_key" in attributes %}
+{% if attributes["https"] and "ssl_cert" in attributes and "ssl_key" in attributes %}
 {% if "ssl_ca" in attributes %}
-ssl_cert_name={{attribtues["ssl_cert"]}} ssl_key_name={{attributes["ssl_key"]}} ssl_ca_name={{attributes["ssl_ca"]}}
+ssl_cert_name={{attributes["ssl_cert"]}} ssl_key_name={{attributes["ssl_key"]}} ssl_ca_name={{attributes["ssl_ca"]}}
 {% else %}
-ssl_cert_name={{attribtues["ssl_cert"]}} ssl_key_name={{attributes["ssl_key"]}}
+ssl_cert_name={{attributes["ssl_cert"]}} ssl_key_name={{attributes["ssl_key"]}}
 {% endif %}
 {% endif %}
 {% endfor %}

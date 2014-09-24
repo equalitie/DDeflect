@@ -5,7 +5,7 @@ general:
   host: 127.0.0.1
   port: 8000
   refresh_period: 1800
-  template_directory: lib/templates/
+  template_directory: ../lib/templates/
   pidfile: /var/run/bundlemanager/bundlemanager.pid
   uid_name: nobody
   gid_name: nogroup

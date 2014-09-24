@@ -1,3 +1,15 @@
+bundlemanager (0.1.1) unstable; urgency=low
+
+  * Fixes for init script brokenness.
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie>  Tue, 09 Sep 2014 19:19:00 +0000
+
+bundlemanager (0.1.0) unstable; urgency=low
+
+  * Python implementation of Bundler, support for remaps.
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie>  Tue, 09 Sep 2014 19:19:00 +0000
+
 bundlemanager (0.0.1) unstable; urgency=low
 
   * First version of bundle tracking+bundle management system for Distributed Deflect.
