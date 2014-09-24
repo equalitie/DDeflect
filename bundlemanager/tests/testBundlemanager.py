@@ -3,9 +3,7 @@
 Python Modules
 """
 import unittest
-import requests
 import os
-
 """
 Bundle Manager modules
 """
