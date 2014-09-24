@@ -13,6 +13,8 @@ import logging
 import StringIO
 import binascii
 from urlparse import urlparse
+from threading import Thread
+from Queue import Queue
 """
 Third party modules
 """
@@ -49,6 +51,8 @@ class BundleMaker(object):
         self.iv = None
         self.hmackey = None
         self.remap_rules = remap_rules
+        self.resource_queue = Queue()
+        self.resource_result_queue = Queue()
 
     def createBundle(self, request, remap_host, key, iv, hmackey):
         """
@@ -182,6 +186,41 @@ class BundleMaker(object):
             output.write('%02x' % val)
         return text + binascii.unhexlify(output.getvalue())
 
+    def resourceCollectorThread(self, main_url):
+        """
+        This method manages the task for the resource collector
+        threads.
+        It retrieves and process resource urls appending them to the result Queue
+        """
+        logging.debug('Thread started')
+        while True:
+            logging.debug('checking')
+            url = self.resource_queue.get()
+
+            resourcePage = requests.get(
+                url,
+                timeout=8
+            )
+            
+            content = ''
+            if self.isSearchableFile(url) or url == main_url:
+                content = resourcePage.content.encode('utf8')
+            else:
+                content = base64.b64encode(resourcePage.content)
+
+            if resourcePage.status_code == requests.codes.ok:
+                logging.debug('Get resource: %s', url)
+                self.resource_result_queue.put(
+                    {
+                        "content": content,
+                        "url": resourcePage.url
+                    }
+                )
+            else:
+                logging.error('Failed to get resource: %s',url)
+            
+            self.resource_queue.task_done()
+
     def fetchResources(self, resources, resourceDomain, remap_host):
         """
         Based on the list of resources provided go and retrieve the physical
@@ -192,34 +231,28 @@ class BundleMaker(object):
 
         This is a flaw and needs to be addressed more intelligently
         """
+        self.resource_queue = Queue( len(resources) )
+        self.resource_result_queue = Queue( len(resources) )
+
+
+        logging.debug('Building resource queue')
         new_resources = []
-
+        resource_set = []
         for r in resources:
-            #This is not very intelligent, as it heavily restricts using
-            #your own CDN for example
-            resourcePage = requests.get(
-                str(r.url),
-                timeout=8
-            )
+           if r.url not in resource_set:
+                resource_set.append(r.url)
+                self.resource_queue.put(str(r.url))
 
-            content = ''
-            if self.isSearchableFile(str(r.url)) or r.url == resources[0].url:
-                content = resourcePage.content.encode('utf8')
-            else:
-                content = base64.b64encode(resourcePage.content)
+        for i in range(len(resources)):
+            t = Thread(target=self.resourceCollectorThread, args=(str(resources[0].url),))
+            t.daemon = True
+            t.start()
 
-            if resourcePage.status_code == requests.codes.ok:
-                logging.debug('Get resource: %s', str(r.url))
-                new_resources.append(
-                    {
-                        "content": content,
-                        "url": resourcePage.url
-                    }
-                )
-            else:
-                logging.error('Failed to get resource: %s',str(r.url))
-                #log error, son
-                return ''
+        logging.debug('Waiting for workers to complete')
+        self.resource_queue.join()
+        logging.debug('Resources retrieved')
+        new_resources = self.resource_result_queue.queue
+       
         return new_resources
 
     def isSearchableFile(self, url):
