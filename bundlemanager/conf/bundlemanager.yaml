@@ -17,5 +17,5 @@ v_edges:
       end: ""
     total_bandwidth: 100
 remap:
-  "nosmo.me":
-    origin: "www.nosmo.me"
+  "site":
+    origin: "site.location"
