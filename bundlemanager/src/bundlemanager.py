@@ -57,7 +57,7 @@ class DebundlerMaker(object):
 class VedgeManager(object):
     def __init__(self, vedge_data):
         self.vedge_data = vedge_data
-        self.redis = redis.Redis()
+        #self.redis = redis.Redis()
         self.vedge_threshold = 100
     '''
     def populateRedisVEdges(self):
@@ -120,6 +120,7 @@ class VedgeManager(object):
         vedge = self.redis.srandmember("active_vedges")
         return vedge
         """
+
 class DebundlerServer(flask.Flask):
 
     def __init__(self, salt, refresh_period, remap_rules,

@@ -11,13 +11,11 @@ general:
   gid_name: nogroup
 
 v_edges:
-  "http://127.0.0.1:8000":
+  "vedge":
     availability:
       start: ""
       end: ""
     total_bandwidth: 100
 remap:
-  "nosmo.me":
-    origin: "www.nosmo.me"
-  "brains.deflect.ca":
-    origin: "brains.deflect.ca"
+  "site":
+    origin: "site.location"
