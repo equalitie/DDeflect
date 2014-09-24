@@ -12,6 +12,7 @@ import base64
 import logging
 import StringIO
 import binascii
+from urlparse import urlparse
 """
 Third party modules
 """
@@ -38,9 +39,6 @@ class BundleMaker(object):
         '\/(\w|-|@)+(\w|\?|\=|\.)+$'
     )
     reGetExtOnly = re.compile('\.\w+')
-    #FIXME these don't account for ports
-    reGetDomain1 = re.compile('^https?:\/\/(\w|\.)+(\/|$)')
-    reGetDomain2 = re.compile('\w+\.\w+(\.\w+)?(\/|$)')
 
     def __init__(self, remap_rules):
         """
@@ -71,7 +69,7 @@ class BundleMaker(object):
         ghost = Ghost()
         resources = []
         #pageLoadCutoff = false
-        resourceDomain = 'localhost/' #self.getResourceDomain(request.url)
+        resourceDomain = self.getResourceDomain(request.url)
 
         logging.info("Retrieved resource domain as: %s", resourceDomain)
 
@@ -141,9 +139,7 @@ class BundleMaker(object):
                 return url + "/"
         else:
             #TOD0: Add error checking here
-            resourceDomain = BundleMaker.reGetDomain2.search(
-                                BundleMaker.reGetDomain1.search(url).group()
-                            ).group()
+            resourceDomain = urlparse(url).hostname
             if resourceDomain[-1] != '/':
                 resourceDomain = resourceDomain + '/'
 
