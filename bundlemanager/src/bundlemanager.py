@@ -19,7 +19,7 @@ import signal
 import threading
 import logging
 import logging.handlers
-from datetime import datetime, time
+#from datetime import datetime, time
 
 from bundler import BundleMaker
 from ghost import Ghost
@@ -59,7 +59,7 @@ class VedgeManager(object):
         self.vedge_data = vedge_data
         self.redis = redis.Redis()
         self.vedge_threshold = 100
-
+    '''
     def populateRedisVEdges(self):
         """
         Set initial values for v-edges in redis
@@ -98,7 +98,7 @@ class VedgeManager(object):
         # key should be delted for bandwidth when that quantity is reached
         # in terms of bandwidth, this should be handled by the badnwidth 
         # recorder
-
+        '''
     def refreshVedges(self):
         """
         Rebuild v-edge list is number of available v-edges 
@@ -113,11 +113,13 @@ class VedgeManager(object):
         and the total bandwidth available
         """
         # pop first element in sorted list, reset timestamp
+        return self.vedge_data.keys()[0]
+        """
         if self.redis.llen("active_vedges") < self.vedge_threshold:
             self.refreshVedges()
         vedge = self.redis.srandmember("active_vedges")
         return vedge
-
+        """
 class DebundlerServer(flask.Flask):
 
     def __init__(self, salt, refresh_period, remap_rules,
