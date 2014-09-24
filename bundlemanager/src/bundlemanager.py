@@ -102,16 +102,16 @@ class DebundlerServer(flask.Flask):
 
     def _bundleSigContentUserAgentIP(self, request, bundle_content):
         return hashlib.sha512(
-            self.salt + bundle_content["bundle"] + request.user_agent.string \
+            self.salt + bundle_content + request.user_agent.string \
                 + request.environ['REMOTE_ADDR']
         ).hexdigest()
 
     @staticmethod
-    def _bundleCheckUserAgentIP(request_data, redis_data):
+    def bundleCheckUserAgentIP(request_data, redis_data):
         if redis_data["host"] == request_data.headers["host"] and \
                 redis_data["path"] == request_data.path and\
-                request_data.environ["REMOTE_ADDR"] == redis_data["requestor"] and\
-                request_data.headers["User-Agent"] == redis_data["headers"]["User-Agent"]:
+                request_data.headers["User-Agent"] == redis_data["headers"]["User-Agent"] and\
+                request_data.environ["REMOTE_ADDR"] == redis_data["requestor"]:
             return True
         else:
             return False
@@ -122,13 +122,12 @@ class DebundlerServer(flask.Flask):
         cookie_string = mash_dict(request.cookies)
 
         return hashlib.sha512(
-            self.salt + bundle_content["bundle"] + request.user_agent.string + \
+            self.salt + bundle_content + request.user_agent.string + \
             cookie_string + request.environ['REMOTE_ADDR']
         ).hexdigest()
 
-    @staticmethod
-    def _bundleCheckUserAgentIPCookies(request_data, redis_data):
-        if self._bundleCheckUserAgentIP(request_data, redis_data) and \
+    def _bundleCheckUserAgentIPCookies(self, request_data, redis_data):
+        if self.bundleCheckUserAgentIP(request_data, redis_data) and \
                 mash_dict(request_data.cookies) == mash_dict(redis_data["cookies"]):
             return True
         else:
@@ -140,10 +139,16 @@ class DebundlerServer(flask.Flask):
         cookie_string = mash_dict(request.headers)
 
         return hashlib.sha512(
-            self.salt + bundle_content["bundle"] + request.user_agent.string + \
+            self.salt + bundle_content + request.user_agent.string + \
             cookie_string
         ).hexdigest()
 
+    def _bundleCheckUserAgentCookies(self, request_data, redis_data):
+        if self.bundleCheckUserAgentIP(request_data, redis_data) and \
+                mash_dict(request_data.cookies) == mash_dict(redis_data["cookies"]):
+            return True
+        else:
+            return False
 
     def _bundleSigContentUserAgentIPHeaders(self, request, bundle_content):
         """ The most "secure" mechanism """
@@ -160,7 +165,7 @@ class DebundlerServer(flask.Flask):
         return self._bundleSigContentUserAgentCookies(request, bundle)
 
     def checkBundleSig(self, request_data, redis_data):
-        return self._bundleSigContentUserAgentCookies(request_data, redis_data)
+        return self._bundleCheckUserAgentCookies(request_data, redis_data)
 
     def genBundle(self, frequest, path, key, iv, hmac_key):
         request_host = frequest.headers.get('Host')
@@ -197,8 +202,9 @@ class DebundlerServer(flask.Flask):
         self.redis.set(bundle_signature, json.dumps({
             "host": request_host,
             "path": path,
+            #TODO redundant storage - cookies are part of the headers objects
             "cookies": frequest.cookies,
-            #"headers": frequest.headers,
+            "headers": dict(frequest.headers),
             "requestor": frequest.environ["REMOTE_ADDR"],
             "bundle": bundle_content,
             "fetched": time.time()
@@ -223,6 +229,9 @@ class DebundlerServer(flask.Flask):
             return resp
 
     def rootRoute(self, path):
+        if path == "favicon.ico":
+            flask.abort(501)
+
         if path.startswith("_bundle"):
             logging.debug("Got a _bundle request at %s", path)
             if "/" not in path:
