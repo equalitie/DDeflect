@@ -302,7 +302,6 @@ class BundleMaker(object):
                     )
 
                 filename_clean = filename.replace('?', '\?')
-                print "Filename is %s" % filename
                 # Error caused by first star in python 2.7.3
                 # Removed it and functionality seems uneffected
                 resourcePattern1 = re.compile(
