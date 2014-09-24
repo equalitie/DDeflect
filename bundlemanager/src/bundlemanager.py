@@ -21,7 +21,7 @@ import logging
 import logging.handlers
 from datetime import datetime, time
 
-from lib.bundler import BundleMaker
+from bundler import BundleMaker
 from ghost import Ghost
 
 class DebundlerMaker(object):
