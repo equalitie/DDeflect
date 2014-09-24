@@ -197,40 +197,41 @@ class BundleMaker(object):
         This is a flaw and needs to be addressed more intelligently
         """
         new_resources = []
-
+	resource_set = []
         for r in resources:
             #This is not very intelligent, as it heavily restricts using
             #your own CDN for example
+            if r.url not in resource_set:
+		resource_set.append(r.url)
+                parsed_url = urlparse.urlparse(r.url)
+                logging.debug("Resource URL is %s, remap_host is %s", r.url, remap_host["origin"])
+                remapped_url = self.remapReqURL(remap_host, parsed_url.path, r.url)
+                logging.debug("Attempting to get remapped resource url %s, resourceDomain %s", remapped_url, resourceDomain)
+                resourcePage = requests.get(
+                    str(remapped_url),
+                    #TODO copy headers from original request here
+                    headers={"Host": resourceDomain.strip("/")},
+                    timeout=8,
+                    verify=False
+                    )
 
-            parsed_url = urlparse.urlparse(r.url)
-            logging.debug("Resource URL is %s, remap_host is %s", r.url, remap_host["origin"])
-            remapped_url = self.remapReqURL(remap_host, parsed_url.path, r.url)
-            logging.debug("Attempting to get remapped resource url %s, resourceDomain %s", remapped_url, resourceDomain)
-            resourcePage = requests.get(
-                str(remapped_url),
-                #TODO copy headers from original request here
-                headers={"Host": resourceDomain.strip("/")},
-                timeout=8,
-                verify=False
-                )
+                content = ''
+                if self.isSearchableFile(str(r.url)) or r.url == resources[0].url:
+                    content = resourcePage.content #.encode('utf8')
+                else:
+                    content = base64.b64encode(resourcePage.content)
 
-            content = ''
-            if self.isSearchableFile(str(r.url)) or r.url == resources[0].url:
-                content = resourcePage.content #.encode('utf8')
-            else:
-                content = base64.b64encode(resourcePage.content)
-
-            if resourcePage.status_code == requests.codes.ok:
-                logging.debug('Get resource: %s', str(r.url))
-                new_resources.append(
-                    {
-                        "content": content,
-                        "url": resourcePage.url
-                    }
-                )
-            else:
-                logging.error('Failed to get resource: %s',str(r.url))
-                #log error, son
+                if resourcePage.status_code == requests.codes.ok:
+                    logging.debug('Get resource: %s', str(r.url))
+                    new_resources.append(
+                        {
+                            "content": content,
+                            "url": resourcePage.url
+                        }
+                    )
+                else:
+                    logging.error('Failed to get resource: %s',str(r.url))
+                    #log error, son
                 
         return new_resources
 
