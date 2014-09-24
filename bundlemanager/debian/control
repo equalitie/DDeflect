@@ -14,6 +14,7 @@ Depends:
          python-flask,
          python-yaml,
          python-redis,
+         python-ghost.py,
 	 xvfb,
 	 python-pyside,
          python-jinja2
