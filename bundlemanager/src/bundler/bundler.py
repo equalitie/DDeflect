@@ -270,7 +270,7 @@ class BundleMaker(object):
         There is a flaw in this system.
         """
 	data_uris = {}
-        import ipdb
+
         for r in reversed(resources):
             logging.debug('Testing resource: [%s] ', r['url'])
             if not r['content'] or r['content'] < 262144:
@@ -318,7 +318,6 @@ class BundleMaker(object):
                     '(' + data_uris[filename] + ')', r['content']
                 )
                 logging.debug('Bundle created for resource: [%s] ', r['url'])
-                ipdb.set_trace()
         return resources
 
     def convertToDataUri(self, content, extension):
