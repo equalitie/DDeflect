@@ -15,7 +15,9 @@ v_edges:
     availability:
       start: ""
       end: ""
-
+    total_bandwidth: 100
 remap:
   "nosmo.me":
     origin: "www.nosmo.me"
+  "brains.deflect.ca":
+    origin: "brains.deflect.ca"
