@@ -281,7 +281,6 @@ class BundleMaker(object):
 
             logging.debug('Scanning resource: [%s] ', r['url'])
             for j in reversed(resources):
-                ipdb.set_trace()
                 if j['url'] == resources[0]['url']:
                     continue
                 # This regex needs to be reconsidered
@@ -301,15 +300,15 @@ class BundleMaker(object):
                         filename
                     )
 
-                filename = filename.replace('?', '\?')
+                filename_clean = filename.replace('?', '\?')
                 print "Filename is %s" % filename
                 # Error caused by first star in python 2.7.3
                 # Removed it and functionality seems uneffected
                 resourcePattern1 = re.compile(
-                    '(\'|")(\w|:|\/|-|@|\.)*' + filename + '(\'|\")'
+                    '(\'|")(\w|:|\/|-|@|\.)*' + filename_clean + '(\'|\")'
                 )
                 resourcePattern2 = re.compile(
-                    '\((\w|:|\/|-|@|\.)*' + filename + '\)'
+                    '\((\w|:|\/|-|@|\.)*' + filename_clean + '\)'
                 )
 
                 r['content'] = resourcePattern1.sub(
@@ -319,6 +318,7 @@ class BundleMaker(object):
                     '(' + data_uris[filename] + ')', r['content']
                 )
                 logging.debug('Bundle created for resource: [%s] ', r['url'])
+                ipdb.set_trace()
         return resources
 
     def convertToDataUri(self, content, extension):
