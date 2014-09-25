@@ -4,6 +4,7 @@
 """
 Python modules
 """
+import urlparse
 import hmac
 import hashlib
 import mimetypes
@@ -72,13 +73,14 @@ class BundleMaker(object):
         logging.debug("Retrieved resource domain as: %s", resourceDomain)
 
         #Pass through request headers directly like a proper proxy
+        #TODO pass other headers here, don't just discard them
         headers = {
             #TODO we break IDNs here - allowing this to pass as a
             #simple unicode object instead of a string breaks stuff.
             'Host': str(request.headers.get('host'))
         }
         logging.debug('Getting remap rule for request')
-        remapped_url = self.remapReqURL(remap_host, request)
+        remapped_url = self.remapReqURL(remap_host, request.path, request.url)
         if not remapped_url:
             logging.error('No remap rule found for: %s', request.headers['host'])
             return None
@@ -102,19 +104,18 @@ class BundleMaker(object):
             "hmac_sig": hmac_sig
         }
 
-    def remapReqURL(self, remap_domain, request):
+    def remapReqURL(self, remap_domain, request_path, request_url):
         """
         Remap given url based on rules defined by
         conf file
         """
-        host = request.headers['host']
-        remap_domain = self.remap_rules[host] if host in self.remap_rules else None
+
         full_path = ''
-        if '?' in request.url:
-            pos = request.url.rfind(request.path)
-            full_path = request.url[:pos]
+        if '?' in request_url:
+            pos = request_url.rfind(request.path)
+            full_path = request_url[:pos]
         else:
-            full_path = request.path
+            full_path = request_path
         logging.debug('URL path: %s', full_path)
 
         return "http://{0}{1}".format(remap_domain['origin'], full_path)
@@ -197,8 +198,14 @@ class BundleMaker(object):
         for r in resources:
             #This is not very intelligent, as it heavily restricts using
             #your own CDN for example
+
+            parsed_url = urlparse.urlparse(r.url)
+            remapped_url = self.remapReqURL(remap_host, parsed_url.path, r.url)
+
             resourcePage = requests.get(
-                str(r.url),
+                str(remapped_url),
+                #TODO copy headers from original request here
+                headers={"Host": remap_host},
                 timeout=8
             )
 
