@@ -141,6 +141,7 @@ class DebundlerServer(flask.Flask):
 
         #wildcard routing
         self.route('/', defaults={'path': ''})(self.rootRoute)
+        self.route('/',  methods=['POST'])(self.postRoute)
         self.route("/_bundle/")(self.serveBundle)
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
@@ -279,9 +280,37 @@ class DebundlerServer(flask.Flask):
         Passes POST request directly to the remapped origin
         returns the server's response
         """
-        remapped_origin = self.bundleMaker.remapReqURL(flask.request)
-        return flask.redirect(remapped_origin, code=307)
+        import ipdb
+        request_host = flask.request.headers.get('Host')
+        remap_host = ''
+        if request_host in self.remap_rules:
+            remap_host = self.remap_rules[request_host]
+        else:
+            #Return 404
+            return None
+        
+        # Whitelist a few headers to pass on
+        request_headers = {}
+        for h in ["Cookie", "Referer", "X-Csrf-Token", "Content-Length"]:
+            if h in flask.request.headers:
+                request_headers[h] = flask.request.headers[h]
+        
+        request_headers['Host'] = request_host
 
+        remapped_origin = self.bundleMaker.remapReqURL(remap_host, flask.request)
+        
+        proxied_response = requests.post(
+                remapped_origin,
+                headers = request_headers,
+                files = flask.request.files,
+                data = flask.request.form,
+                cookies = flask.request.cookies,
+
+        )
+        
+        return flask.Response(
+                    response=proxied_response
+                )
     def serveBundle(self, bundlehash):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
         if not self.redis.sismember("bundles", bundlehash):

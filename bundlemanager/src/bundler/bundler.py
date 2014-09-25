@@ -53,6 +53,7 @@ class BundleMaker(object):
         self.remap_rules = remap_rules
         self.resource_queue = Queue(maxsize=0)
         self.resource_result_queue = Queue(maxsize=0)
+        #self.THREAD_COUNT = THREAD_COUNT
         self.main_url = None
 
         for i in range( 20):
