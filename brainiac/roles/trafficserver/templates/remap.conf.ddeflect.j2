@@ -1,3 +1,5 @@
 {% for site in remap %}
 .include remap.d/{{site}}.config
 {% endfor %}
+
+map http://{{ansible_nodename}}     http://localhost:{{bundlemanager_port}}
