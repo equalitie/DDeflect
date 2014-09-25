@@ -19,6 +19,7 @@ import signal
 import threading
 import logging
 import logging.handlers
+#from datetime import datetime, time
 
 from bundler import BundleMaker
 from ghost import Ghost
@@ -56,11 +57,69 @@ class DebundlerMaker(object):
 class VedgeManager(object):
     def __init__(self, vedge_data):
         self.vedge_data = vedge_data
+        #self.redis = redis.Redis()
+        self.vedge_threshold = 100
+    '''
+    def populateRedisVEdges(self):
+        """
+        Set initial values for v-edges in redis
+        storing time windows and bandwidth constraints
+        """
+        for edge in self.vedge_data:
+            value = json.dumps({
+                "start": edge['availability']['start'],
+                "end": edge['availability']['end'],
+                "total_bandiwdth": edge['total_bandwidth'],
+                "used_bandwidth": 0
+            })
+            self.redis.sadd("vedges", edge.key())
+            self.redis.set(edge.key(), value)
+
+            now = datetime.utcnow()
+            now_time = now.time()
+
+            start = time.strptime(edge['availability']['start'], "%H:%M")
+            end = time.strptime(edge['availability']['end'], "%H:%M")
+
+            if now_time >= start and now_time <= end:
+                expiration = now.replace(
+                                    hour = end.hour,
+                                    minute = end.minute
+                            ) 
+                active_key = edge.key() + '_active'
+                self.redis.sadd("active_vedges", active_key)
+                self.redis.set(active_key, value)
+                self.redis.expire(active_key, expiration)
+
+            #Build special set for quick lookup of time windows, represent as hash set
+
+        # Create active set and copy store to it
+        # with expiration for keys
+        # key should be delted for bandwidth when that quantity is reached
+        # in terms of bandwidth, this should be handled by the badnwidth 
+        # recorder
+        '''
+    def refreshVedges(self):
+        """
+        Rebuild v-edge list is number of available v-edges 
+        has slipped below predefined threshold
+        """
+        pass
 
     def getVedge(self):
-        #TODO read the vedge_data to figure out when we should serve
-        #via a particular edge etc etc
+        """
+        This function selects v-edges based on
+        their current availability, the time last accessed,
+        and the total bandwidth available
+        """
+        # pop first element in sorted list, reset timestamp
         return self.vedge_data.keys()[0]
+        """
+        if self.redis.llen("active_vedges") < self.vedge_threshold:
+            self.refreshVedges()
+        vedge = self.redis.srandmember("active_vedges")
+        return vedge
+        """
 
 class DebundlerServer(flask.Flask):
 
@@ -85,6 +144,8 @@ class DebundlerServer(flask.Flask):
         self.route("/_bundle/")(self.serveBundle)
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
+        self.route('/<path:path>',  methods=['POST'])(self.postRoute)
+        self.bundleMaker = BundleMaker(remap_rules)
 
     def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
@@ -212,6 +273,14 @@ class DebundlerServer(flask.Flask):
         self.redis.expire(bundle_signature, self.refresh_period)
 
         return bundle_signature
+
+    def postRoute(self):
+        """
+        Passes POST request directly to the remapped origin
+        returns the server's response
+        """
+        remapped_origin = self.bundleMaker.remapReqURL(flask.request)
+        return flask.redirect(remapped_origin, code=307)
 
     def serveBundle(self, bundlehash):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
