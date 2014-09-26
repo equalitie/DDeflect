@@ -25,6 +25,50 @@ from Crypto.Cipher import AES
 need to compile all regexes
 """
 
+class ResourceCollector( threading.Thread ):
+
+    def __init__(self, queue, result_queue, main_url):
+        threading.Thread.__init__(self)
+        self.resource_queue = queue
+        self.resource_result_queue = resource_result_queue
+        self.main_url = main_url
+
+    def run(self):
+        """
+        This method manages the task for the resource collector
+        threads.
+        It retrieves and process resource urls appending them to the result Queue
+        """
+        logging.debug('Thread started')
+        while True:
+            url = self.resource_queue.get()
+
+            resourcePage = requests.get(
+                url,
+                timeout=8
+            )
+            
+            content = ''
+            if self.isSearchableFile(url) or url == self.main_url:
+                content = resourcePage.content.encode('utf8')
+            else:
+                content = base64.b64encode(resourcePage.content)
+
+            if resourcePage.status_code == requests.codes.ok:
+                logging.debug('Get resource: %s', url)
+                self.resource_result_queue.put(
+                    {
+                        "content": content,
+                        "url": resourcePage.url
+                    }
+                )
+            else:
+                logging.error('Failed to get resource: %s',url)
+            
+            self.resource_queue.task_done()
+        logging.debug('Thread exiting')
+
+
 class BundleMaker(object):
     """
     Just for the joy of it, let's compile the ton
@@ -203,7 +247,6 @@ class BundleMaker(object):
         """
         logging.debug('Thread started')
         while True:
-            logging.debug('checking')
             url = self.resource_queue.get()
 
             resourcePage = requests.get(
@@ -229,6 +272,7 @@ class BundleMaker(object):
                 logging.error('Failed to get resource: %s',url)
             
             self.resource_queue.task_done()
+        logging.debug('Thread exiting')
 
     def fetchResources(self, resources, resourceDomain, remap_host):
         """
