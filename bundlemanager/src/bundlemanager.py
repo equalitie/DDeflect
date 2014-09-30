@@ -85,7 +85,7 @@ class VedgeManager(object):
                 expiration = now.replace(
                                     hour = end.hour,
                                     minute = end.minute
-                            ) 
+                            )
                 active_key = edge.key() + '_active'
                 self.redis.sadd("active_vedges", active_key)
                 self.redis.set(active_key, value)
@@ -96,12 +96,12 @@ class VedgeManager(object):
         # Create active set and copy store to it
         # with expiration for keys
         # key should be delted for bandwidth when that quantity is reached
-        # in terms of bandwidth, this should be handled by the badnwidth 
+        # in terms of bandwidth, this should be handled by the badnwidth
         # recorder
         '''
     def refreshVedges(self):
         """
-        Rebuild v-edge list is number of available v-edges 
+        Rebuild v-edge list is number of available v-edges
         has slipped below predefined threshold
         """
         pass
@@ -285,6 +285,7 @@ class DebundlerServer(flask.Flask):
     def serveBundle(self, bundlehash):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
         if not self.redis.sismember("bundles", bundlehash):
+             logging.error("Got request for bundle %s but it is not in the bundles list", bundlehash)
             flask.abort(404)
         bundle_get = json.loads(self.redis.get(bundlehash))
         if "bundle" not in bundle_get:
@@ -298,8 +299,9 @@ class DebundlerServer(flask.Flask):
             return resp
 
     def rootRoute(self, path):
-        if path == "favicon.ico":
-            flask.abort(501)
+        #TODO this may be causing issues with premature broken pipes
+        #if path == "favicon.ico":
+        #    flask.abort(501)
 
         if path.startswith("_bundle"):
             logging.debug("Got a _bundle request at %s", path)
@@ -331,7 +333,7 @@ class DebundlerServer(flask.Flask):
                     #TODO this needs testing
                     if self.checkBundleSig(flask.request, redis_data):
                         #if redis_data["host"] == request_host and redis_data["path"] == path:
-                        logging.debug("Bundle %s matches current request", bundlehash)
+                        logging.debug("Bundle %s matches current request", storedbundlehash)
                         bundlehash = storedbundlehash
                         break
 
@@ -340,6 +342,7 @@ class DebundlerServer(flask.Flask):
                 bundlehash = self.genBundle(flask.request, path,
                                             key, iv, hmac_key)
                 if not bundlehash:
+                    logging.error("Failing because bundlehash was null")
                     flask.abort(404)
 
             if not self.redis.sismember("bundles", bundlehash) or not self.redis.exists(bundlehash):
@@ -353,6 +356,7 @@ class DebundlerServer(flask.Flask):
                 v_edge=unicode(v_edge),
                 bundle_signature=bundlehash)
 
+            logging.debug("Returning template to user for signature %s", bundlehash)
             resp = flask.Response(render_result, status=200)
             #response.set_cookie(
             return resp
@@ -385,7 +389,7 @@ class bundleManagerDaemon():
                                             remap_rules, d, v,
                                             template_directory=template_directory)
         logging.info("Starting to serve on port %d", port)
-        self.debundleServer.run(debug=True, threaded=True, host=host, port=port, use_reloader=False)
+        self.debundleServer.run(debug=False, threaded=True, host=host, port=port, use_reloader=False)
 
     def delpid(self):
         if os.path.exists(self.pidfile):
