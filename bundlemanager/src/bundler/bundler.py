@@ -154,8 +154,6 @@ class BundleMaker(object):
 
         reaped_resources = self.socket.recv()
         logging.debug("Received reaping results %s", reaped_resources)
-        import ipdb
-        ipdb.set_trace()
 
         ext_resources = json.loads(reaped_resources)
 
