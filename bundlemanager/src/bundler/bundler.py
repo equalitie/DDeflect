@@ -4,6 +4,7 @@
 """
 Python modules
 """
+import json
 import hmac
 import hashlib
 import mimetypes
@@ -18,17 +19,17 @@ from Queue import Queue
 """
 Third party modules
 """
+import zmq
 import requests
-from ghost import Ghost
 from Crypto.Cipher import AES
 """
 need to compile all regexes
 """
 
-class ResourceCollector( threading.Thread ):
+class ResourceCollector( Thread ):
 
     def __init__(self, queue, result_queue, main_url):
-        threading.Thread.__init__(self)
+        Thread.__init__(self)
         self.resource_queue = queue
         self.resource_result_queue = resource_result_queue
         self.main_url = main_url
@@ -86,7 +87,7 @@ class BundleMaker(object):
     )
     reGetExtOnly = re.compile('\.\w+')
 
-    def __init__(self, remap_rules):
+    def __init__(self, remap_rules, comms_port):
         """
         Only important thing to setup here is Ghost, which will drive the key
         aspect of bundler - getting the resource list
@@ -99,6 +100,10 @@ class BundleMaker(object):
         self.resource_result_queue = Queue(maxsize=0)
         #self.THREAD_COUNT = THREAD_COUNT
         self.main_url = None
+        
+        ctx = zmq.Context()
+        self.socket = ctx.socket(zmq.REQ)
+        self.socket.connect(comms_port)
 
         for i in range( 20):
             t = Thread(target=self.resourceCollectorThread)
@@ -121,7 +126,6 @@ class BundleMaker(object):
         self.iv = iv
         self.hmackey = hmackey
 
-        ghost = Ghost()
         resources = []
         #pageLoadCutoff = false
         resourceDomain = self.getResourceDomain(request.url)
@@ -141,8 +145,19 @@ class BundleMaker(object):
             return None
 
         logging.debug("Attempting to load remapped page: %s", remapped_url)
-        page, ext_resources = ghost.open(remapped_url, headers=headers)
-        logging.debug("Request returned with status: %s", page.http_status)
+        work_set = json.dumps({
+            "url": remapped_url,
+            "resourceDomain": resourceDomain
+        })
+        logging.debug("Sending request to site reaper")
+        self.socket.send(work_set)
+
+        reaped_resources = self.socket.recv()
+        logging.debug("Received reaping results %s", reaped_resources)
+        import ipdb
+        ipdb.set_trace()
+
+        ext_resources = json.loads(reaped_resources)
 
         resources = self.fetchResources(ext_resources, resourceDomain, remap_host)
 
@@ -292,12 +307,12 @@ class BundleMaker(object):
         new_resources = []
         resource_set = []
 
-        self.main_url = resources[0].url
+        self.main_url = resources[0]['url']
 
         for r in resources:
-           if r.url not in resource_set:
-                resource_set.append(r.url)
-                self.resource_queue.put(str(r.url))
+           if r['url'] not in resource_set:
+                resource_set.append(r['url'])
+                self.resource_queue.put(str(r['url']))
 
         logging.debug('Waiting for workers to complete')
         self.resource_queue.join()

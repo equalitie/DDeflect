@@ -124,7 +124,7 @@ class VedgeManager(object):
 class DebundlerServer(flask.Flask):
 
     def __init__(self, salt, refresh_period, remap_rules,
-                 debundler_maker, vedge_manager, template_directory=""):
+                 debundler_maker, vedge_manager, comms_port, template_directory=""):
         super(DebundlerServer, self).__init__("DebundlerServer")
         if template_directory:
             self.template_folder = template_directory
@@ -132,8 +132,7 @@ class DebundlerServer(flask.Flask):
         self.vedge_manager = vedge_manager
         self.bundles = collections.defaultdict(dict)
         self.remap_rules = remap_rules
-        self.bundleMaker = BundleMaker(remap_rules)
-
+        self.bundleMaker = BundleMaker(remap_rules, comms_port)
         self.salt = salt
         self.refresh_period = refresh_period
 
@@ -146,7 +145,6 @@ class DebundlerServer(flask.Flask):
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
         self.route('/<path:path>',  methods=['POST'])(self.postRoute)
-        self.bundleMaker = BundleMaker(remap_rules)
 
     def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
@@ -407,11 +405,12 @@ class bundleManagerDaemon():
 
         vedge_data = self.config["v_edges"]
         remap_rules = self.config["remap"]
+        comms_port = self.config["general"]["comms_port"]
 
         d = DebundlerMaker(refresh_period)
         v = VedgeManager(vedge_data)
         self.debundleServer = DebundlerServer(url_salt, refresh_period,
-                                            remap_rules, d, v,
+                                            remap_rules, d, v, comms_port,
                                             template_directory=template_directory)
         logging.info("Starting to serve on port %d", port)
         self.debundleServer.run(debug=True, threaded=True, host=host, port=port, use_reloader=False)

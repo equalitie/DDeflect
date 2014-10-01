@@ -7,6 +7,8 @@
     "start": "node bundler"
   },
   "dependencies": {
+    "faye-websocket": "latest",
+    "zmq": "latest",
     "method-override": "latest",
     "body-parser": "latest",
     "compression": "latest",
