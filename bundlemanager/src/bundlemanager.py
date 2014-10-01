@@ -24,9 +24,13 @@ import logging.handlers
 try: 
     import settings
 except IOError: 
+    # IO Error means that we can't load the default settings file.
     if __name__ == "__main__": 
+        # We'll reload the settings file in main
         pass
     else: 
+        # We're being imported as a module, there is no hope of
+        # recovery.
         raise
 
 from bundler import BundleMaker
@@ -480,7 +484,6 @@ def createHandler(daemon):
         elif signum == signal.SIGHUP:
             if daemon.debundleServer:
                 logging.warn("Reload V-Edge list")
-                #config = yaml.load(open(args.config_path).read())
                 settings = reload(settings)
                 daemon.debundleServer.reloadVEdges(
                     VedgeManager(settings.v_edges)
@@ -502,6 +505,7 @@ if __name__ == "__main__":
         #Backwards compatability
         os.environ["BUNDLEMANAGER_CONFIG"] = args.config_path
 
+    #Make settings import/reimport available everywhere.
     global settings
     import settings
 
