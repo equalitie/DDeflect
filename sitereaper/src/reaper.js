@@ -101,7 +101,7 @@ Reaper.retrieveResources = function(url, proc) {
 		// We've loaded the page and know what its resources are.
     
     socket.send( JSON.stringify(proc.resources) );
-	  console.log('Resources 2: ' + JSON.stringify(proc.resources));
+	  console.log('Resources found: ' + JSON.stringify(proc.resources));
 		proc.ph.exit();
 	});
 
@@ -117,7 +117,7 @@ console.log('Awaiting requests');
 
 socket.on('message', function( siteRequest ){
 	console.log('Received ZMQ request');
-	console.log('Data: ' + siteRequest);
+	console.log('Request: ' + siteRequest);
   Reaper.loadPage(siteRequest);
 });
 
