@@ -14,7 +14,7 @@ import logging
 import StringIO
 import binascii
 from urlparse import urlparse
-from threading import Thread
+from threading import Thread, currentThread
 from Queue import Queue
 """
 Third party modules
@@ -258,7 +258,8 @@ class BundleMaker(object):
         threads.
         It retrieves and process resource urls appending them to the result Queue
         """
-        logging.debug('Thread started')
+        thread_num = currentThread()
+        logging.debug('%s thread started', thread_num)
         while True:
             url = self.resource_queue.get()
 
@@ -267,25 +268,26 @@ class BundleMaker(object):
                 timeout=8
             )
             
-            content = ''
-            if self.isSearchableFile(url) or url == self.main_url:
-                content = resourcePage.content.encode('utf8')
-            else:
-                content = base64.b64encode(resourcePage.content)
-
             if resourcePage.status_code == requests.codes.ok:
-                logging.debug('Get resource: %s', url)
-                self.resource_result_queue.put(
-                    {
-                        "content": content,
-                        "url": resourcePage.url
-                    }
-                )
+                content = ''
+                logging.debug('%s got content for url: %s', thread_num, url)
+                if self.isSearchableFile(url) or url == self.main_url:
+                    content = resourcePage.content.encode('utf8')
+                else:
+                    content = base64.b64encode(resourcePage.content)
+
+                    logging.debug('%s got resource: %s', thread_num, url)
+                    self.resource_result_queue.put(
+                        {
+                            "content": content,
+                            "url": resourcePage.url
+                        }
+                    )
             else:
-                logging.error('Failed to get resource: %s',url)
+                logging.error('%s failed to get resource: %s', thread_num, url)
             
             self.resource_queue.task_done()
-        logging.debug('Thread exiting')
+        logging.debug('%s thread exiting', thread_num)
 
     def fetchResources(self, resources, resourceDomain, remap_host):
         """
