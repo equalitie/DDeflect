@@ -86,6 +86,7 @@ class BundleMaker(object):
             return None
 
         logging.debug("Attempting to load remapped page: %s", remapped_url)
+        #TODO catch exceptions
         page, ext_resources = ghost.open(remapped_url, headers=headers)
         logging.debug("Request returned with status: %s", page.http_status)
 
@@ -110,15 +111,13 @@ class BundleMaker(object):
         conf file
         """
 
-        full_path = ''
-        if '?' in request_url:
-            pos = request_url.rfind(request.path)
-            full_path = request_url[:pos]
-        else:
-            full_path = request_path
-        logging.debug('URL path: %s', full_path)
+        parsed_url = urlparse.urlparse(request_url)
 
-        return "http://{0}{1}".format(remap_domain['origin'], full_path)
+        return "{0}://{1}{2}{3}".format(parsed_url.scheme,
+                                        remap_domain['origin'],
+                                        parsed_url.path,
+                                        "?%s" % parsed_url.query if parsed_url.query else "")
+
 
     def getResourceDomain(self, url):
         """
