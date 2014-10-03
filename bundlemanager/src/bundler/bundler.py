@@ -182,7 +182,7 @@ class BundleMaker(object):
         Remap given url based on rules defined by
         conf file
         """
-        parsed_url = urlparse.urlparse(request.url)
+        parsed_url = urlparse(request.url)
         full_path = parsed_url.path
 
         # Is this not going to simply discard all arguments?
@@ -193,7 +193,7 @@ class BundleMaker(object):
             parsed_url.scheme,
             remap_domain,
             full_path,
-            "?%s" % if parsed_url.query else "")
+            "?%s" % parsed_url.query if parsed_url.query else "")
 
     def getResourceDomain(self, url):
         """
