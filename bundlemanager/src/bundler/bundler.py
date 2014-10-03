@@ -107,7 +107,7 @@ class BundleMaker(object):
         self.socket.connect(comms_port)
 
         for i in range( 20):
-            t = Thread(target=self.resourceCollectorThread, daemon=True)
+            t = Thread(target=self.resourceCollectorThread)
             t.daemon = True
             t.start()
 
