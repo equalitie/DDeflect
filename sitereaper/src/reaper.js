@@ -69,7 +69,7 @@ Reaper.loadPage = function( requestData ) {
             remapped_host: req.remapped_host
 					});
 			});
-		}, {port: freePort}
+		}, {port: freePort}, '--ignore-ssl-errors=true'
 		);
 	});
 };
@@ -86,9 +86,9 @@ Reaper.retrieveResources = function(url, proc) {
         if ( request.url.match('^http') &&
             ( request.url.match(proc.host) ||
               request.url.match(proc.remapped_host ))) {
-          var resource_url = (request.url.match(proc.host)) ? request.url.replace(proc.host, proc.remapped_host) : request.url;
+          //var resource_url = (request.url.match(proc.host)) ? request.url.replace(proc.host, proc.remapped_host) : request.url;
           proc.resources.push( {
-            url: resource_url
+            url: request.url
           });
         }
       }

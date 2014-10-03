@@ -49,12 +49,13 @@ class ResourceCollector( Thread ):
 
             resourcePage = requests.get(
                 url,
-                timeout=8
+                timeout=8,
+                verify=False
             )
 
             content = ''
             if self.isSearchableFile(url) or url == self.main_url:
-                content = resourcePage.content.encode('utf8')
+                content = resourcePage.content #.encode('utf8')
             else:
                 content = base64.b64encode(resourcePage.content)
 
@@ -179,9 +180,9 @@ class BundleMaker(object):
 
         logging.debug('Collected %s resources', len(resources))
 
-        resources = self.replaceResources(resources)
+        parsed_content = self.replaceResources(resources)
         logging.debug('Resources replaced')
-        bundle = self.encryptBundle(resources[0]['content'])
+        bundle = self.encryptBundle(parsed_content)
         logging.debug('Bundle encrypted')
         hmac_sig = self.signBundle(bundle)
         logging.debug('Bundle signed - and now they know when in memory to look :(')
@@ -190,18 +191,17 @@ class BundleMaker(object):
             "hmac_sig": hmac_sig
         }
 
-    def remapReqURL(self, remap_domain, request_path, request_url):
+    def remapReqURL(self, remap_domain, request):
         """
         Remap given url based on rules defined by
         conf file
         """
 
-        parsed_url = urlparse.urlparse(request.url)
+        parsed_url = urlparse(request.url)
 
         # Is this not going to simply discard all arguments?
         #if '?' in request.url:
 
-        logging.debug('URL path: %s', full_path)
         return "{0}://{1}{2}{3}".format(
             parsed_url.scheme,
             remap_domain,
@@ -280,10 +280,10 @@ class BundleMaker(object):
         thread_num = currentThread()
         logging.debug('%s thread started', thread_num)
         while True:
-            url = self.resource_queue.get()
-
+            item = self.resource_queue.get()
+            url = item['url']
             resourcePage = requests.get(
-                url,
+                item['url'],
                 timeout=8
             )
 
@@ -292,7 +292,7 @@ class BundleMaker(object):
                 logging.debug('%s got content for url: %s', thread_num, url)
                 logging.debug(self.main_url)
                 if self.isSearchableFile(url) or url == self.main_url:
-                    content = resourcePage.content.encode('utf8')
+                    content = resourcePage.content #.encode('utf9')
                 else:
                     content = base64.b64encode(resourcePage.content)
 
@@ -300,7 +300,8 @@ class BundleMaker(object):
                     self.resource_result_queue.put(
                         {
                             "content": content,
-                            "url": resourcePage.url
+                            "url": resourcePage.url,
+                            "position": item['position']
                         }
                     )
             else:
@@ -324,20 +325,25 @@ class BundleMaker(object):
 
 
         logging.debug('Building resource queue')
-        new_resources = []
-        resource_set = []
 
         self.main_url = resources[0]['url']
-
+        position = 0
         for r in resources:
-           if r['url'] not in resource_set:
-                resource_set.append(r['url'])
-                self.resource_queue.put(str(r['url']))
+            position += 1
+            self.resource_queue.put({
+                'url':str(r['url']),
+                'position':position
+            })
 
         logging.debug('Waiting for workers to complete')
         self.resource_queue.join()
         logging.debug('Resources retrieved')
-        new_resources = self.resource_result_queue.queue
+        new_resources = list( self.resource_result_queue.queue )
+        # Annoyingly order matters a great deal
+        # because if A references B reference C, we have to bundle C then
+        # B then A otherwise A might end up with a bundle of C that doesn't
+        # have the datauri for C but has the original URI instead
+        new_resources.sort(key = lambda k: k['position'])
 
         return new_resources
 
@@ -377,18 +383,18 @@ class BundleMaker(object):
         There is a flaw in this system.
         """
         data_uris = {}
-
+        main_url_content = ''
         for r in reversed(resources):
             logging.debug('Testing resource: [%s] ', r['url'])
             if not r['content'] or r['content'] < 262144:
                 continue
-            if r['url'] != resources[0]['url']:
+            if r['url'] != self.main_url:
                 if not self.isSearchableFile(r['url']):
                     continue
-
+               
             logging.debug('Scanning resource: [%s] ', r['url'])
             for j in reversed(resources):
-                if j['url'] == resources[0]['url']:
+                if j['url'] == self.main_url:
                     continue
                 # This regex needs to be reconsidered
                 # at present just take the last element of the returned list
@@ -424,7 +430,8 @@ class BundleMaker(object):
                     '(' + data_uris[filename] + ')', r['content']
                 )
                 logging.debug('Bundle created for resource: [%s] ', r['url'])
-        return resources
+
+        return resources[0]['content']
 
     def convertToDataUri(self, content, extension):
         """
