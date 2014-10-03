@@ -284,7 +284,8 @@ class BundleMaker(object):
             url = item['url']
             resourcePage = requests.get(
                 item['url'],
-                timeout=8
+                timeout=8,
+                verify=False
             )
 
             if resourcePage.status_code == requests.codes.ok:
@@ -295,15 +296,15 @@ class BundleMaker(object):
                     content = resourcePage.content #.encode('utf9')
                 else:
                     content = base64.b64encode(resourcePage.content)
-
-                    logging.debug('%s got resource: %s', thread_num, url)
-                    self.resource_result_queue.put(
-                        {
-                            "content": content,
-                            "url": resourcePage.url,
-                            "position": item['position']
-                        }
-                    )
+            
+                logging.debug('%s got resource: %s  ', thread_num, url)
+                self.resource_result_queue.put(
+                    {
+                        "content": content,
+                        "url": resourcePage.url,
+                        "position": item['position']
+                    }
+                )
             else:
                 logging.error('%s failed to get resource: %s', thread_num, url)
 
@@ -329,16 +330,18 @@ class BundleMaker(object):
         self.main_url = resources[0]['url']
         position = 0
         for r in resources:
-            position += 1
             self.resource_queue.put({
                 'url':str(r['url']),
                 'position':position
             })
+            position += 1
 
         logging.debug('Waiting for workers to complete')
         self.resource_queue.join()
         logging.debug('Resources retrieved')
         new_resources = list( self.resource_result_queue.queue )
+        import ipdb
+        ipdb.set_trace()
         # Annoyingly order matters a great deal
         # because if A references B reference C, we have to bundle C then
         # B then A otherwise A might end up with a bundle of C that doesn't
