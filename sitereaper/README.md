@@ -1,12 +1,11 @@
 # Reaper
 
-Programmed by Nadim "*the Dream*" Kobeissi  
-
 ## Installation
-1. [Install PhantomJS](http://phantomjs.org/download.html) on your system.  
+1. [Install PhantomJS](http://phantomjs.org/download.html) on your system.
 2. ```cd``` to the bundler directory
-3. Run ```npm install```  
-4. Run ```node bundler```  
+3. Run ```apt-get install libzmq1 libzmq-dev```.
+4. Run ```npm install```
+5. Run ```node bundler```
 
 ## Test and build a debian package with grunt
 0. ``npm install grunt-debian-package`` https://www.npmjs.org/package/grunt-debian-package

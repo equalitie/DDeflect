@@ -33,6 +33,7 @@ class ResourceCollector( Thread ):
         self.resource_queue = queue
         self.resource_result_queue = resource_result_queue
         self.main_url = main_url
+        self.daemon = True
 
     def run(self):
         """
@@ -48,7 +49,7 @@ class ResourceCollector( Thread ):
                 url,
                 timeout=8
             )
-            
+
             content = ''
             if self.isSearchableFile(url) or url == self.main_url:
                 content = resourcePage.content.encode('utf8')
@@ -65,7 +66,7 @@ class ResourceCollector( Thread ):
                 )
             else:
                 logging.error('Failed to get resource: %s',url)
-            
+
             self.resource_queue.task_done()
         logging.debug('Thread exiting')
 
@@ -100,13 +101,13 @@ class BundleMaker(object):
         self.resource_result_queue = Queue(maxsize=0)
         #self.THREAD_COUNT = THREAD_COUNT
         self.main_url = None
-        
+
         ctx = zmq.Context()
         self.socket = ctx.socket(zmq.REQ)
         self.socket.connect(comms_port)
 
         for i in range( 20):
-            t = Thread(target=self.resourceCollectorThread)
+            t = Thread(target=self.resourceCollectorThread, daemon=True)
             t.daemon = True
             t.start()
 
@@ -269,7 +270,7 @@ class BundleMaker(object):
                 url,
                 timeout=8
             )
-            
+
             if resourcePage.status_code == requests.codes.ok:
                 content = ''
                 logging.debug('%s got content for url: %s', thread_num, url)
@@ -288,7 +289,7 @@ class BundleMaker(object):
                     )
             else:
                 logging.error('%s failed to get resource: %s', thread_num, url)
-            
+
             self.resource_queue.task_done()
         logging.debug('%s thread exiting', thread_num)
 
@@ -321,7 +322,7 @@ class BundleMaker(object):
         self.resource_queue.join()
         logging.debug('Resources retrieved')
         new_resources = self.resource_result_queue.queue
-       
+
         return new_resources
 
     def isSearchableFile(self, url):
