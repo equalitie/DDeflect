@@ -9,13 +9,13 @@ general:
   pidfile: /var/run/bundlemanager/bundlemanager.pid
   uid_name: nobody
   gid_name: nogroup
-
+  comms_port: "tcp://127.0.0.1:12345"
 v_edges:
   "http://127.0.0.1:8000":
     availability:
       start: ""
       end: ""
-
+    total_bandwidth: 100
 remap:
-  "nosmo.me":
-    origin: "www.nosmo.me"
+  "site.example.ie":
+    origin: "www.site.example.ie" 

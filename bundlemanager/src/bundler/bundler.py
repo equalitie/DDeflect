@@ -4,7 +4,9 @@
 """
 Python modules
 """
+
 import urlparse
+import json
 import hmac
 import hashlib
 import mimetypes
@@ -13,15 +15,63 @@ import base64
 import logging
 import StringIO
 import binascii
+from urlparse import urlparse
+from threading import Thread, currentThread
+from Queue import Queue
 """
 Third party modules
 """
+import zmq
 import requests
-from ghost import Ghost
 from Crypto.Cipher import AES
 """
 need to compile all regexes
 """
+
+class ResourceCollector( Thread ):
+
+    def __init__(self, queue, result_queue, main_url):
+        Thread.__init__(self)
+        self.resource_queue = queue
+        self.resource_result_queue = resource_result_queue
+        self.main_url = main_url
+        self.daemon = True
+
+    def run(self):
+        """
+        This method manages the task for the resource collector
+        threads.
+        It retrieves and process resource urls appending them to the result Queue
+        """
+        logging.debug('Thread started')
+        while True:
+            url = self.resource_queue.get()
+
+            resourcePage = requests.get(
+                url,
+                timeout=8
+            )
+
+            content = ''
+            if self.isSearchableFile(url) or url == self.main_url:
+                content = resourcePage.content.encode('utf8')
+            else:
+                content = base64.b64encode(resourcePage.content)
+
+            if resourcePage.status_code == requests.codes.ok:
+                logging.debug('Get resource: %s', url)
+                self.resource_result_queue.put(
+                    {
+                        "content": content,
+                        "url": resourcePage.url
+                    }
+                )
+            else:
+                logging.error('Failed to get resource: %s',url)
+
+            self.resource_queue.task_done()
+        logging.debug('Thread exiting')
+
 
 class BundleMaker(object):
     """
@@ -39,11 +89,8 @@ class BundleMaker(object):
         '\/(\w|-|@)+(\w|\?|\=|\.)+$'
     )
     reGetExtOnly = re.compile('\.\w+')
-    #FIXME these don't account for ports
-    reGetDomain1 = re.compile('^https?:\/\/(\w|\.)+(\/|$)')
-    reGetDomain2 = re.compile('\w+\.\w+(\.\w+)?(\/|$)')
 
-    def __init__(self, remap_rules):
+    def __init__(self, remap_rules, comms_port):
         """
         Only important thing to setup here is Ghost, which will drive the key
         aspect of bundler - getting the resource list
@@ -52,8 +99,21 @@ class BundleMaker(object):
         self.iv = None
         self.hmackey = None
         self.remap_rules = remap_rules
+        self.resource_queue = Queue(maxsize=0)
+        self.resource_result_queue = Queue(maxsize=0)
+        #self.THREAD_COUNT = THREAD_COUNT
+        self.main_url = None
 
-    def createBundle(self, request, remap_host, key, iv, hmackey):
+        ctx = zmq.Context()
+        self.socket = ctx.socket(zmq.REQ)
+        self.socket.connect(comms_port)
+
+        for i in range( 20):
+            t = Thread(target=self.resourceCollectorThread)
+            t.daemon = True
+            t.start()
+
+    def createBundle(self, request, key, iv, hmackey):
         """
         This is function which ties it altogether
         primarily this is process manager function.
@@ -63,11 +123,18 @@ class BundleMaker(object):
         """
         logging.debug("Processing request for: %s", request.url)
 
+        logging.debug("Get remap domain")
+        host = request.headers['host']
+        remap_domain = self.remap_rules[host]['origin'] if host in self.remap_rules else None
+        if not remap_domain:
+            logging.debug("No remap found for domain: %s", host)
+            return None
+        logging.debug("Remap found")
+
         self.key = key
         self.iv = iv
         self.hmackey = hmackey
 
-        ghost = Ghost()
         resources = []
         #pageLoadCutoff = false
         resourceDomain = self.getResourceDomain(request.url)
@@ -82,18 +149,33 @@ class BundleMaker(object):
             'Host': str(request.headers.get('host'))
         }
         logging.debug('Getting remap rule for request')
-        remapped_url = self.remapReqURL(remap_host, request.path, request.url)
+        remapped_url = self.remapReqURL(remap_domain, request)
+
+
         if not remapped_url:
             logging.error('No remap rule found for: %s', request.headers['host'])
             return None
 
         logging.debug("Attempting to load remapped page: %s", remapped_url)
-        logging.debug("Headers are %s", str(headers))
-        #TODO catch exceptions here
-        page, ext_resources = ghost.open(remapped_url, headers=headers)
-        logging.debug("Request returned with status: %s", page.http_status)
 
-        resources = self.fetchResources(ext_resources, resourceDomain, remap_host)
+        work_set = json.dumps({
+            "url": remapped_url,
+            "host": host,
+            "remapped_host": remap_domain
+        })
+        logging.debug("Sending request to site reaper")
+        self.socket.send(work_set)
+
+        reaped_resources = self.socket.recv()
+        if not reaped_resources:
+            logging.debug("No resources returned. Ending process")
+            return None
+        logging.debug("Received reaping results %s", reaped_resources)
+
+
+        ext_resources = json.loads(reaped_resources)
+
+        resources = self.fetchResources(ext_resources)
 
         logging.debug('Collected %s resources', len(resources))
 
@@ -114,12 +196,18 @@ class BundleMaker(object):
         conf file
         """
 
-        parsed_url = urlparse.urlparse(request_url)
+        parsed_url = urlparse.urlparse(request.url)
 
-        return "{0}://{1}{2}{3}".format(parsed_url.scheme, 
-                                        remap_domain['origin'], 
-                                        parsed_url.path, 
-                                        "?%s" % parsed_url.query if parsed_url.query else "")
+        # Is this not going to simply discard all arguments?
+        #if '?' in request.url:
+
+        logging.debug('URL path: %s', full_path)
+        return "{0}://{1}{2}{3}".format(
+            parsed_url.scheme,
+            remap_domain,
+            parsed_url.path,
+            "?%s" % parsed_url.query if parsed_url.query else "")
+
 
     def getResourceDomain(self, url):
         """
@@ -137,9 +225,7 @@ class BundleMaker(object):
                 return url + "/"
         else:
             #TOD0: Add error checking here
-            resourceDomain = BundleMaker.reGetDomain2.search(
-                                BundleMaker.reGetDomain1.search(url).group()
-                            ).group()
+            resourceDomain = urlparse(url).hostname
             if resourceDomain[-1] != '/':
                 resourceDomain = resourceDomain + '/'
 
@@ -186,59 +272,80 @@ class BundleMaker(object):
             output.write('%02x' % val)
         return text + binascii.unhexlify(output.getvalue())
 
-    def fetchResources(self, resources, resourceDomain, remap_host):
+    def resourceCollectorThread(self):
         """
-        Based on the list of resources provided go and retrieve the physical
-        content for each of these pages. Provided to this function are the
-        resources as a list of strings and the resourceDomain string. The
-        latter is used to ensure that only resources for the requested domain
-        are bundled.
-
-        This is a flaw and needs to be addressed more intelligently
+        This method manages the task for the resource collector
+        threads.
+        It retrieves and process resource urls appending them to the result Queue
         """
-        new_resources = []
-	resource_set = []
-        for r in resources:
-            #This is not very intelligent, as it heavily restricts using
-            #your own CDN for example
-            if r.url not in resource_set:
-		resource_set.append(r.url)
-                parsed_url = urlparse.urlparse(r.url)
-                logging.debug("Resource URL is %s, remap_host is %s", r.url, remap_host["origin"])
-                remapped_url = self.remapReqURL(remap_host, parsed_url.path, r.url)
-                logging.debug("Attempting to get remapped resource url %s, resourceDomain %s", remapped_url, resourceDomain)
-                resourcePage = requests.get(
-                    str(remapped_url),
-                    #TODO copy headers from original request here
-                    headers={"Host": resourceDomain.strip("/")},
-                    timeout=8,
-                    verify=False
-                    )
+        thread_num = currentThread()
+        logging.debug('%s thread started', thread_num)
+        while True:
+            url = self.resource_queue.get()
 
+            resourcePage = requests.get(
+                url,
+                timeout=8
+            )
+
+            if resourcePage.status_code == requests.codes.ok:
                 content = ''
-                if self.isSearchableFile(str(r.url)) or r.url == resources[0].url:
-                    content = resourcePage.content #.encode('utf8')
+                logging.debug('%s got content for url: %s', thread_num, url)
+                logging.debug(self.main_url)
+                if self.isSearchableFile(url) or url == self.main_url:
+                    content = resourcePage.content.encode('utf8')
                 else:
                     content = base64.b64encode(resourcePage.content)
 
-                if resourcePage.status_code == requests.codes.ok:
-                    logging.debug('Get resource: %s', str(r.url))
-                    new_resources.append(
+                    logging.debug('%s got resource: %s', thread_num, url)
+                    self.resource_result_queue.put(
                         {
                             "content": content,
                             "url": resourcePage.url
                         }
                     )
-                else:
-                    logging.error('Failed to get resource: %s',str(r.url))
-                    #log error, son
-                
+            else:
+                logging.error('%s failed to get resource: %s', thread_num, url)
+
+            self.resource_queue.task_done()
+        logging.debug('%s thread exiting', thread_num)
+
+    def fetchResources(self, resources):
+        """
+        Based on the list of resources provided go and retrieve the physical
+        content for each of these pages. Provided to this function are the
+        resources as a list of strings. The
+        latter is used to ensure that only resources for the requested domain
+        are bundled.
+
+        This is a flaw and needs to be addressed more intelligently
+        """
+        #self.resource_queue = Queue( len(resources) )
+        #self.resource_result_queue = Queue( len(resources) )
+
+
+        logging.debug('Building resource queue')
+        new_resources = []
+        resource_set = []
+
+        self.main_url = resources[0]['url']
+
+        for r in resources:
+           if r['url'] not in resource_set:
+                resource_set.append(r['url'])
+                self.resource_queue.put(str(r['url']))
+
+        logging.debug('Waiting for workers to complete')
+        self.resource_queue.join()
+        logging.debug('Resources retrieved')
+        new_resources = self.resource_result_queue.queue
+
         return new_resources
 
     def isSearchableFile(self, url):
         """
         This function is responsible for checking whether or not
-        the given url can be considered to be a parasable file, such as,
+        the given url can be considered to be a parsable file, such as,
         XML, CSS or JSON, as opposed to binary data.
 
         This function is used primarily in the replaceResources function,
@@ -248,14 +355,14 @@ class BundleMaker(object):
 
         ext = BundleMaker.reGetExt.search(url)
         if ext:
-	    ext = ext.group()
+            ext = ext.group()
 	    if ext[-1] == '?':
 	        ext = ext[:-1];
 	    if (ext in mimetypes.types_map and BundleMaker.reMatchMime.search(
                  mimetypes.types_map[ext])
             ) or ext in [".php", ".html", ".css", ".json"]:
 	        return True
-	return False
+        return False
 
     def replaceResources(self, resources):
         """
@@ -270,7 +377,7 @@ class BundleMaker(object):
 
         There is a flaw in this system.
         """
-	data_uris = {}
+        data_uris = {}
 
         for r in reversed(resources):
             logging.debug('Testing resource: [%s] ', r['url'])
@@ -287,7 +394,7 @@ class BundleMaker(object):
                 # This regex needs to be reconsidered
                 # at present just take the last element of the returned list
                 filename = BundleMaker.reCatchUri.findall(j['url'])
-		
+
                 filename = filename[-1][0] + filename[-1][1]
 
                 if not BundleMaker.reTestForFile.search(filename): continue
@@ -331,11 +438,11 @@ class BundleMaker(object):
             extension = extension.group(0)
         else:
             extension = '.html'
-	
+
         # Deal with files not covered by mimetypes
         # for example .ttf
 
-	mimetype = mimetypes.types_map[extension] if extension in mimetypes.types_map else 'application/octet-stream'
+        mimetype = mimetypes.types_map[extension] if extension in mimetypes.types_map else 'application/octet-stream'
 
         dataURI = 'data:' + mimetype + ';base64,'
         if self.isSearchableFile(str(extension)):

@@ -1,0 +1,16 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+build:
+	cp src/reaper.js src/reaper
+	dh build
+
+clean:
+	dh_testdir
+	dh_auto_clean
+	rm -f src/reaper
+	dh_clean
+
+%:
+	echo "target" $@
+	dh $@

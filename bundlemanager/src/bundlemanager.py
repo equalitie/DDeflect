@@ -19,6 +19,7 @@ import signal
 import threading
 import logging
 import logging.handlers
+#from datetime import datetime, time
 
 from bundler import BundleMaker
 from ghost import Ghost
@@ -56,16 +57,74 @@ class DebundlerMaker(object):
 class VedgeManager(object):
     def __init__(self, vedge_data):
         self.vedge_data = vedge_data
+        #self.redis = redis.Redis()
+        self.vedge_threshold = 100
+    '''
+    def populateRedisVEdges(self):
+        """
+        Set initial values for v-edges in redis
+        storing time windows and bandwidth constraints
+        """
+        for edge in self.vedge_data:
+            value = json.dumps({
+                "start": edge['availability']['start'],
+                "end": edge['availability']['end'],
+                "total_bandiwdth": edge['total_bandwidth'],
+                "used_bandwidth": 0
+            })
+            self.redis.sadd("vedges", edge.key())
+            self.redis.set(edge.key(), value)
+
+            now = datetime.utcnow()
+            now_time = now.time()
+
+            start = time.strptime(edge['availability']['start'], "%H:%M")
+            end = time.strptime(edge['availability']['end'], "%H:%M")
+
+            if now_time >= start and now_time <= end:
+                expiration = now.replace(
+                                    hour = end.hour,
+                                    minute = end.minute
+                            ) 
+                active_key = edge.key() + '_active'
+                self.redis.sadd("active_vedges", active_key)
+                self.redis.set(active_key, value)
+                self.redis.expire(active_key, expiration)
+
+            #Build special set for quick lookup of time windows, represent as hash set
+
+        # Create active set and copy store to it
+        # with expiration for keys
+        # key should be delted for bandwidth when that quantity is reached
+        # in terms of bandwidth, this should be handled by the badnwidth 
+        # recorder
+        '''
+    def refreshVedges(self):
+        """
+        Rebuild v-edge list is number of available v-edges 
+        has slipped below predefined threshold
+        """
+        pass
 
     def getVedge(self):
-        #TODO read the vedge_data to figure out when we should serve
-        #via a particular edge etc etc
+        """
+        This function selects v-edges based on
+        their current availability, the time last accessed,
+        and the total bandwidth available
+        """
+        # pop first element in sorted list, reset timestamp
         return self.vedge_data.keys()[0]
+        """
+        if self.redis.llen("active_vedges") < self.vedge_threshold:
+            self.refreshVedges()
+        vedge = self.redis.srandmember("active_vedges")
+        return vedge
+        """
 
 class DebundlerServer(flask.Flask):
 
     def __init__(self, salt, refresh_period, remap_rules,
-                 debundler_maker, vedge_manager, template_directory=""):
+                 debundler_maker, vedge_manager, comms_port, template_directory=""):
         super(DebundlerServer, self).__init__("DebundlerServer")
         if template_directory:
             self.template_folder = template_directory
@@ -73,8 +132,7 @@ class DebundlerServer(flask.Flask):
         self.vedge_manager = vedge_manager
         self.bundles = collections.defaultdict(dict)
         self.remap_rules = remap_rules
-        self.bundleMaker = BundleMaker(remap_rules)
-
+        self.bundleMaker = BundleMaker(remap_rules, comms_port)
         self.salt = salt
         self.refresh_period = refresh_period
 
@@ -82,9 +140,11 @@ class DebundlerServer(flask.Flask):
 
         #wildcard routing
         self.route('/', defaults={'path': ''})(self.rootRoute)
+        self.route('/',  methods=['POST'])(self.postRoute)
         self.route("/_bundle/")(self.serveBundle)
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
+        self.route('/<path:path>',  methods=['POST'])(self.postRoute)
 
     def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
@@ -102,16 +162,16 @@ class DebundlerServer(flask.Flask):
 
     def _bundleSigContentUserAgentIP(self, request, bundle_content):
         return hashlib.sha512(
-            self.salt + bundle_content["bundle"] + request.user_agent.string \
+            self.salt + bundle_content + request.user_agent.string \
                 + request.environ['REMOTE_ADDR']
         ).hexdigest()
 
     @staticmethod
-    def _bundleCheckUserAgentIP(request_data, redis_data):
+    def bundleCheckUserAgentIP(request_data, redis_data):
         if redis_data["host"] == request_data.headers["host"] and \
                 redis_data["path"] == request_data.path and\
-                request_data.environ["REMOTE_ADDR"] == redis_data["requestor"] and\
-                request_data.headers["User-Agent"] == redis_data["headers"]["User-Agent"]:
+                request_data.headers["User-Agent"] == redis_data["headers"]["User-Agent"] and\
+                request_data.environ["REMOTE_ADDR"] == redis_data["requestor"]:
             return True
         else:
             return False
@@ -122,13 +182,12 @@ class DebundlerServer(flask.Flask):
         cookie_string = mash_dict(request.cookies)
 
         return hashlib.sha512(
-            self.salt + bundle_content["bundle"] + request.user_agent.string + \
+            self.salt + bundle_content + request.user_agent.string + \
             cookie_string + request.environ['REMOTE_ADDR']
         ).hexdigest()
 
-    @staticmethod
-    def _bundleCheckUserAgentIPCookies(request_data, redis_data):
-        if self._bundleCheckUserAgentIP(request_data, redis_data) and \
+    def _bundleCheckUserAgentIPCookies(self, request_data, redis_data):
+        if self.bundleCheckUserAgentIP(request_data, redis_data) and \
                 mash_dict(request_data.cookies) == mash_dict(redis_data["cookies"]):
             return True
         else:
@@ -140,10 +199,16 @@ class DebundlerServer(flask.Flask):
         cookie_string = mash_dict(request.headers)
 
         return hashlib.sha512(
-            self.salt + bundle_content["bundle"] + request.user_agent.string + \
+            self.salt + bundle_content + request.user_agent.string + \
             cookie_string
         ).hexdigest()
 
+    def _bundleCheckUserAgentCookies(self, request_data, redis_data):
+        if self.bundleCheckUserAgentIP(request_data, redis_data) and \
+                mash_dict(request_data.cookies) == mash_dict(redis_data["cookies"]):
+            return True
+        else:
+            return False
 
     def _bundleSigContentUserAgentIPHeaders(self, request, bundle_content):
         """ The most "secure" mechanism """
@@ -160,19 +225,12 @@ class DebundlerServer(flask.Flask):
         return self._bundleSigContentUserAgentCookies(request, bundle)
 
     def checkBundleSig(self, request_data, redis_data):
-        return self._bundleSigContentUserAgentCookies(request_data, redis_data)
+        return self._bundleCheckUserAgentCookies(request_data, redis_data)
 
     def genBundle(self, frequest, path, key, iv, hmac_key):
         request_host = frequest.headers.get('Host')
-
-        if request_host in self.remap_rules:
-            remap_host = self.remap_rules[request_host]
-        else:
-            return None
-
         logging.debug("Bundle request url is %s",  frequest.url)
         bundler_result = self.bundleMaker.createBundle(frequest,
-                                                       remap_host,
                                                        key,
                                                        iv,
                                                        hmac_key
@@ -197,8 +255,9 @@ class DebundlerServer(flask.Flask):
         self.redis.set(bundle_signature, json.dumps({
             "host": request_host,
             "path": path,
+            #TODO redundant storage - cookies are part of the headers objects
             "cookies": frequest.cookies,
-            #"headers": frequest.headers,
+            "headers": dict(frequest.headers),
             "requestor": frequest.environ["REMOTE_ADDR"],
             "bundle": bundle_content,
             "fetched": time.time()
@@ -207,6 +266,42 @@ class DebundlerServer(flask.Flask):
 
         return bundle_signature
 
+    def postRoute(self):
+        """
+        Passes POST request directly to the remapped origin
+        returns the server's response
+        """
+        import ipdb
+        request_host = flask.request.headers.get('Host')
+        remap_host = ''
+        if request_host in self.remap_rules:
+            remap_host = self.remap_rules[request_host]
+        else:
+            #Return 404
+            return None
+        
+        # Whitelist a few headers to pass on
+        request_headers = {}
+        for h in ["Cookie", "Referer", "X-Csrf-Token", "Content-Length"]:
+            if h in flask.request.headers:
+                request_headers[h] = flask.request.headers[h]
+        
+        request_headers['Host'] = request_host
+
+        remapped_origin = self.bundleMaker.remapReqURL(remap_host, flask.request)
+        
+        proxied_response = requests.post(
+                remapped_origin,
+                headers = request_headers,
+                files = flask.request.files,
+                data = flask.request.form,
+                cookies = flask.request.cookies,
+
+        )
+        
+        return flask.Response(
+                    response=proxied_response
+                )
     def serveBundle(self, bundlehash):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
         if not self.redis.sismember("bundles", bundlehash):
@@ -223,6 +318,9 @@ class DebundlerServer(flask.Flask):
             return resp
 
     def rootRoute(self, path):
+        if path == "favicon.ico":
+            flask.abort(501)
+
         if path.startswith("_bundle"):
             logging.debug("Got a _bundle request at %s", path)
             if "/" not in path:
@@ -300,11 +398,12 @@ class bundleManagerDaemon():
 
         vedge_data = self.config["v_edges"]
         remap_rules = self.config["remap"]
+        comms_port = self.config["general"]["comms_port"]
 
         d = DebundlerMaker(refresh_period)
         v = VedgeManager(vedge_data)
         self.debundleServer = DebundlerServer(url_salt, refresh_period,
-                                            remap_rules, d, v,
+                                            remap_rules, d, v, comms_port,
                                             template_directory=template_directory)
         logging.info("Starting to serve on port %d", port)
         self.debundleServer.run(debug=True, threaded=True, host=host, port=port, use_reloader=False)
