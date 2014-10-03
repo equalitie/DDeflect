@@ -78,36 +78,39 @@ Reaper.retrieveResources = function(url, proc) {
 	proc.resources = [];
 	proc.pageLoadedCutoff = false;
 	console.log('Initializing resource collection for ' + url);
-	proc.page.set('onResourceRequested', function(request, networkRequest) {
-	   console.log('Resource event caught');
-		if (!proc.pageLoadedCutoff) {
-      console.log('resource: ' + request.url);
-			if ( request.url.match('^http') &&
-					( request.url.match(proc.host) ||
-            request.url.match(proc.remapped_host ))) {
-        var resource_url = (request.url.match(proc.host)) ? request.url.replace(proc.host, proc.remapped_host) : request.url;
-      console.log('resource: ' + resource_url);
-				proc.resources.push( {
-					url: resource_url
-				});
-			}
-		}
-	});
-	proc.page.open(url, function(status) {
-	  console.log('Page opened');
-		proc.pageLoadedCutoff = true;
-		if (status !== 'success') {
-                    //TODO https://redmine.equalit.ie/redmine/issues/324
-			console.log('Abort' + ': ' + status);
-			return false;
-		}
-		// We've loaded the page and know what its resources are.
-    
-    socket.send( JSON.stringify(proc.resources) );
-	  console.log('Resources found: ' + JSON.stringify(proc.resources));
-		proc.ph.exit();
-	});
-
+  try {
+    proc.page.set('onResourceRequested', function(request, networkRequest) {
+       console.log('Resource event caught');
+      if (!proc.pageLoadedCutoff) {
+        console.log("resource: " + request.url);
+        if ( request.url.match('^http') &&
+            ( request.url.match(proc.host) ||
+              request.url.match(proc.remapped_host ))) {
+          var resource_url = (request.url.match(proc.host)) ? request.url.replace(proc.host, proc.remapped_host) : request.url;
+          proc.resources.push( {
+            url: resource_url
+          });
+        }
+      }
+    });
+    proc.page.open(url, function(status) {
+      console.log('Page opened');
+      proc.pageLoadedCutoff = true;
+      if (status !== 'success') {
+                      //TODO https://redmine.equalit.ie/redmine/issues/324
+        console.log('Abort' + ': ' + status);
+      }
+      // We've loaded the page and know what its resources are.
+      
+      socket.send( JSON.stringify(proc.resources) );
+      console.log('Resources found: ' + JSON.stringify(proc.resources));
+      proc.ph.exit();
+    });
+  } 
+  catch (e){
+    console.log(e);
+    socket.send( null );
+  }
 };
 
 //Initialise comms sockets
