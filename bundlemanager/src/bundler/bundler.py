@@ -151,7 +151,7 @@ class BundleMaker(object):
         work_set = json.dumps({
             "url": remapped_url,
             "host": host,
-            "remapped_host": remap_domain 
+            "remapped_host": remap_domain
         })
         logging.debug("Sending request to site reaper")
         self.socket.send(work_set)
@@ -181,16 +181,18 @@ class BundleMaker(object):
         Remap given url based on rules defined by
         conf file
         """
-        full_path = ''
-        if '?' in request.url:
-            pos = request.url.rfind(request.path)
-            full_path = request.url[pos:]
-        else:
-            full_path = request.path
-        logging.debug('URL path: %s', full_path)
+        parsed_url = urlparse.urlparse(request.url)
+        full_path = parsed_url.path
 
-        #EHHHHHH is this forcing http????? this is not good
-        return "http://{0}{1}".format(remap_domain, full_path)
+        # Is this not going to simply discard all arguments?
+        #if '?' in request.url:
+
+        logging.debug('URL path: %s', full_path)
+        return "{0}://{1}{2}{3}".format(
+            parsed_url.scheme,
+            remap_domain,
+            full_path,
+            "?%s" % if parsed_url.query else "")
 
     def getResourceDomain(self, url):
         """
