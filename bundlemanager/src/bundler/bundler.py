@@ -111,8 +111,6 @@ class BundleMaker(object):
             t.daemon = True
             t.start()
 
-
-
     def createBundle(self, request, key, iv, hmackey):
         """
         This is function which ties it altogether
@@ -157,6 +155,9 @@ class BundleMaker(object):
         self.socket.send(work_set)
 
         reaped_resources = self.socket.recv()
+        if not reaped_resources:
+            logging.debug("No resources returned. Ending process")
+            return None
         logging.debug("Received reaping results %s", reaped_resources)
 
         ext_resources = json.loads(reaped_resources)
