@@ -184,7 +184,7 @@ class BundleMaker(object):
         full_path = ''
         if '?' in request.url:
             pos = request.url.rfind(request.path)
-            full_path = request.url[:pos]
+            full_path = request.url[pos:]
         else:
             full_path = request.path
         logging.debug('URL path: %s', full_path)
