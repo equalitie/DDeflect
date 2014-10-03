@@ -39,7 +39,7 @@ var Reaper = {};
 // print to commandline if -v
 Reaper.log = function(message) {
 	if (process.argv[2] == '-v') {
-		console.log('[BUNDLER] '.red.bold, message);
+		console.log('[BUNDLER] ', message);
 	} else {
 		Syslog.log(Syslog.LOG_INFO, '[BUNDLER] ' + message);
 	}
@@ -54,25 +54,24 @@ Reaper.loadPage = function( requestData ) {
 	// Will fetch resources as part of the bundle.
   var req = JSON.parse(requestData);
 
-	console.log('Initializing bundling for ' + req.url);
-  var resourceDomain = req.resourceDomain;
-  var url = req.url;
 
 	// Visit the website, determine its HTML and the resources it depends on.
-	var test = portScanner.findAPortNotInUse(40000, 60000, 'localhost', function(err, freePort) {
+	portScanner.findAPortNotInUse(40000, 60000, 'localhost', function(err, freePort) {
 		phantom.create(function(ph) {
 			ph.createPage(function(page) {
+        var headers = {"Host": req.host};
+        page.set("customHeaders", headers);
 				Reaper.retrieveResources(
-					url,  {
+					req.url,  {
 						ph: ph,
 						page: page,
-						resourceDomain: resourceDomain
+						host: req.host,
+            remapped_host: req.remapped_host
 					});
 			});
 		}, {port: freePort}
 		);
 	});
-  console.log(JSON.stringify(test));
 };
 
 Reaper.retrieveResources = function(url, proc) {
@@ -82,10 +81,14 @@ Reaper.retrieveResources = function(url, proc) {
 	proc.page.set('onResourceRequested', function(request, networkRequest) {
 	   console.log('Resource event caught');
 		if (!proc.pageLoadedCutoff) {
+      console.log('resource: ' + request.url);
 			if ( request.url.match('^http') &&
-					request.url.match(proc.resourceDomain)) {
+					( request.url.match(proc.host) ||
+            request.url.match(proc.remapped_host ))) {
+        var resource_url = (request.url.match(proc.host)) ? request.url.replace(proc.host, proc.remapped_host) : request.url;
+      console.log('resource: ' + resource_url);
 				proc.resources.push( {
-					url: request.url
+					url: resource_url
 				});
 			}
 		}
@@ -95,7 +98,7 @@ Reaper.retrieveResources = function(url, proc) {
 		proc.pageLoadedCutoff = true;
 		if (status !== 'success') {
                     //TODO https://redmine.equalit.ie/redmine/issues/324
-			console.log('Abort'.red.bold + ': ' + status);
+			console.log('Abort' + ': ' + status);
 			return false;
 		}
 		// We've loaded the page and know what its resources are.

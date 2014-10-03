@@ -229,15 +229,8 @@ class DebundlerServer(flask.Flask):
 
     def genBundle(self, frequest, path, key, iv, hmac_key):
         request_host = frequest.headers.get('Host')
-
-        if request_host in self.remap_rules:
-            remap_host = self.remap_rules[request_host]
-        else:
-            return None
-
         logging.debug("Bundle request url is %s",  frequest.url)
         bundler_result = self.bundleMaker.createBundle(frequest,
-                                                       remap_host,
                                                        key,
                                                        iv,
                                                        hmac_key

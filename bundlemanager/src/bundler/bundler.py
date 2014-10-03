@@ -112,7 +112,7 @@ class BundleMaker(object):
 
 
 
-    def createBundle(self, request, remap_host, key, iv, hmackey):
+    def createBundle(self, request, key, iv, hmackey):
         """
         This is function which ties it altogether
         primarily this is process manager function.
@@ -121,6 +121,14 @@ class BundleMaker(object):
         Output: Encrypted bundle, hmac signature
         """
         logging.debug("Processing request for: %s", request.url)
+
+        logging.debug("Get remap domain")
+        host = request.headers['host']
+        remap_domain = self.remap_rules[host]['origin'] if host in self.remap_rules else None
+        if not remap_domain:
+            logging.debug("No remap found for domain: %s", host)
+            return None
+        logging.debug("Remap found")
 
         self.key = key
         self.iv = iv
@@ -132,14 +140,8 @@ class BundleMaker(object):
 
         logging.debug("Retrieved resource domain as: %s", resourceDomain)
 
-        #Pass through request headers directly like a proper proxy
-        headers = {
-            #TODO we break IDNs here - allowing this to pass as a
-            #simple unicode object instead of a string breaks stuff.
-            'Host': str(request.headers.get('host'))
-        }
         logging.debug('Getting remap rule for request')
-        remapped_url = self.remapReqURL(remap_host, request)
+        remapped_url = self.remapReqURL(remap_domain, request)
         if not remapped_url:
             logging.error('No remap rule found for: %s', request.headers['host'])
             return None
@@ -147,7 +149,8 @@ class BundleMaker(object):
         logging.debug("Attempting to load remapped page: %s", remapped_url)
         work_set = json.dumps({
             "url": remapped_url,
-            "resourceDomain": resourceDomain
+            "host": host,
+            "remapped_host": remap_domain 
         })
         logging.debug("Sending request to site reaper")
         self.socket.send(work_set)
@@ -157,7 +160,7 @@ class BundleMaker(object):
 
         ext_resources = json.loads(reaped_resources)
 
-        resources = self.fetchResources(ext_resources, resourceDomain, remap_host)
+        resources = self.fetchResources(ext_resources)
 
         logging.debug('Resources Collected')
 
@@ -177,8 +180,6 @@ class BundleMaker(object):
         Remap given url based on rules defined by
         conf file
         """
-        host = request.headers['host']
-        remap_domain = self.remap_rules[host] if host in self.remap_rules else None
         full_path = ''
         if '?' in request.url:
             pos = request.url.rfind(request.path)
@@ -187,7 +188,8 @@ class BundleMaker(object):
             full_path = request.path
         logging.debug('URL path: %s', full_path)
 
-        return "http://{0}{1}".format(remap_domain['origin'], full_path)
+        #EHHHHHH is this forcing http????? this is not good
+        return "http://{0}{1}".format(remap_domain, full_path)
 
     def getResourceDomain(self, url):
         """
@@ -271,6 +273,7 @@ class BundleMaker(object):
             if resourcePage.status_code == requests.codes.ok:
                 content = ''
                 logging.debug('%s got content for url: %s', thread_num, url)
+                logging.debug(self.main_url)
                 if self.isSearchableFile(url) or url == self.main_url:
                     content = resourcePage.content.encode('utf8')
                 else:
@@ -289,11 +292,11 @@ class BundleMaker(object):
             self.resource_queue.task_done()
         logging.debug('%s thread exiting', thread_num)
 
-    def fetchResources(self, resources, resourceDomain, remap_host):
+    def fetchResources(self, resources):
         """
         Based on the list of resources provided go and retrieve the physical
         content for each of these pages. Provided to this function are the
-        resources as a list of strings and the resourceDomain string. The
+        resources as a list of strings. The
         latter is used to ensure that only resources for the requested domain
         are bundled.
 
@@ -324,7 +327,7 @@ class BundleMaker(object):
     def isSearchableFile(self, url):
         """
         This function is responsible for checking whether or not
-        the given url can be considered to be a parasable file, such as,
+        the given url can be considered to be a parsable file, such as,
         XML, CSS or JSON, as opposed to binary data.
 
         This function is used primarily in the replaceResources function,
