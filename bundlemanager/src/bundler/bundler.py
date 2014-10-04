@@ -4,7 +4,7 @@
 """
 Python modules
 """
-
+from os.path import splitext
 import urlparse
 import json
 import hmac
@@ -443,12 +443,15 @@ class BundleMaker(object):
         Taking resource content as input this function constructs a valid
         data URI and returns it
         """
-
-        extension = BundleMaker.reGetExtOnly.search(extension)
-        if extension:
-            extension = extension.group(0)
+        # Strip url params 
+        if '?' in extension:
+            pos = extension.index('?')
         else:
+            pos = None
+        extension = splitext(extension[:pos])[-1]
+        if extension == '':
             extension = '.html'
+
 
         # Deal with files not covered by mimetypes
         # for example .ttf
