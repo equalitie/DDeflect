@@ -109,6 +109,9 @@ class BundleMaker(object):
         self.socket = ctx.socket(zmq.REQ)
         self.socket.connect(comms_port)
 
+        """
+        Setup resource collection threads
+        """
         for i in range( 20):
             t = Thread(target=self.resourceCollectorThread)
             t.daemon = True
@@ -324,17 +327,19 @@ class BundleMaker(object):
         #self.resource_queue = Queue( len(resources) )
         #self.resource_result_queue = Queue( len(resources) )
 
-
+        resource_set = []
         logging.debug('Building resource queue')
 
         self.main_url = resources[0]['url']
         position = 0
         for r in resources:
-            self.resource_queue.put({
-                'url':str(r['url']),
-                'position':position
-            })
-            position += 1
+            if r['url'] not in resource_set:
+                resource_set.append(str(r['url']))
+                self.resource_queue.put({
+                    'url':str(r['url']),
+                    'position':position
+                })
+                position += 1
 
         logging.debug('Waiting for workers to complete')
         self.resource_queue.join()
@@ -405,8 +410,8 @@ class BundleMaker(object):
                 if not BundleMaker.reTestForFile.search(filename): continue
 
                 filename = filename[1:]
-
-                logging.debug('Bundling resource: [%s]', j['url'])
+                if filename not in r['content'].decode('utf-8'):
+                    continue
 		if filename not in data_uris:
                     data_uris[filename] = self.convertToDataUri(
                         j['content'],
@@ -424,7 +429,7 @@ class BundleMaker(object):
                 )
 
                 r['content'] = resourcePattern1.sub(
-                    '"' + data_uris[filename] + '"', r['content']
+                     data_uris[filename], r['content']
                 )
                 r['content'] = resourcePattern2.sub(
                     '(' + data_uris[filename] + ')', r['content']

@@ -22,7 +22,6 @@ import logging.handlers
 #from datetime import datetime, time
 
 from bundler import BundleMaker
-from ghost import Ghost
 
 def mash_dict(input_dict):
     #Mash together keys and values of a dict
