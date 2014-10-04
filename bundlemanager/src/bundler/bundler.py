@@ -419,10 +419,12 @@ class BundleMaker(object):
                     )
 
                 filename_clean = filename.replace('?', '\?')
+                filename_clean = filename_clean.replace('.', '\.')
                 # Error caused by first star in python 2.7.3
                 # Removed it and functionality seems uneffected
                 resourcePattern1 = re.compile(
-                    '(\'|")(\w|:|\/|-|@|\.)*' + filename_clean + '(\'|\")'
+                    '[\'|\"|\(][^\"|\']*' + filename_clean + '[\'|\"|\)]'
+                    #'(\'|")(\w|:|\/|-|@|\.)*' + filename_clean + '(\'|\")'
                 )
                 resourcePattern2 = re.compile(
                     '\((\w|:|\/|-|@|\.)*' + filename_clean + '\)'
