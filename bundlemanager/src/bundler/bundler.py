@@ -384,7 +384,6 @@ class BundleMaker(object):
         There is a flaw in this system.
         """
         data_uris = {}
-        main_url_content = ''
         for r in reversed(resources):
             logging.debug('Testing resource: [%s] ', r['url'])
             if not r['content'] or r['content'] < 262144:
