@@ -340,8 +340,6 @@ class BundleMaker(object):
         self.resource_queue.join()
         logging.debug('Resources retrieved')
         new_resources = list( self.resource_result_queue.queue )
-        import ipdb
-        ipdb.set_trace()
         # Annoyingly order matters a great deal
         # because if A references B reference C, we have to bundle C then
         # B then A otherwise A might end up with a bundle of C that doesn't
