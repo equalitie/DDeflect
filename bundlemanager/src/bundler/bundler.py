@@ -18,6 +18,7 @@ import binascii
 from urlparse import urlparse
 from threading import Thread, currentThread
 from Queue import Queue
+import HTMLParser
 """
 Third party modules
 """
@@ -84,10 +85,10 @@ class BundleMaker(object):
         '(text|css|javascript|plain|json|xml|octet\-stream)'
     )
     reCatchUri = re.compile(
-        '(^https?:\/\/|\.{0,2}\/?)((?:\w|-|@|\.|\?|\=|\&)+)'
+        '(^https?:\/\/|\.{0,2}\/?)((?:\w|-|@|\.|\?|\=|&|%)+)'
     )
     reTestForFile = re.compile(
-        '\/(\w|-|@)+(\w|\?|\=|\.)+$'
+        '\/(\w|-|@)+(\w|\?|\=|\.|-|&|%)+$'
     )
     reGetExtOnly = re.compile('\.\w+')
 
@@ -96,6 +97,7 @@ class BundleMaker(object):
         Only important thing to setup here is Ghost, which will drive the key
         aspect of bundler - getting the resource list
         """
+        self.htmlparser = HTMLParser()
         self.key = None
         self.iv = None
         self.hmackey = None
@@ -105,6 +107,11 @@ class BundleMaker(object):
         #self.THREAD_COUNT = THREAD_COUNT
         self.main_url = None
 
+        # Add mime type to handle php
+        self.remapped_mimes = [
+                                '',
+                                '.php'
+                                ]
         ctx = zmq.Context()
         self.socket = ctx.socket(zmq.REQ)
         self.socket.connect(comms_port)
@@ -296,7 +303,7 @@ class BundleMaker(object):
                 logging.debug('%s got content for url: %s', thread_num, url)
                 logging.debug(self.main_url)
                 if self.isSearchableFile(url) or url == self.main_url:
-                    content = resourcePage.content #.encode('utf9')
+                    content = self.htmlparser.unescape( resourcePage.content)
                 else:
                     content = base64.b64encode(resourcePage.content)
             
@@ -389,6 +396,7 @@ class BundleMaker(object):
         There is a flaw in this system.
         """
         data_uris = {}
+        start =time.time()
         for r in reversed(resources):
             logging.debug('Testing resource: [%s] ', r['url'])
             if not r['content'] or r['content'] < 262144:
@@ -424,21 +432,13 @@ class BundleMaker(object):
                 # Removed it and functionality seems uneffected
                 resourcePattern1 = re.compile(
                     '[\'|\"|\(][^\"|\']*' + filename_clean + '[\'|\"|\)]'
-                    #'(\'|")(\w|:|\/|-|@|\.)*' + filename_clean + '(\'|\")'
-                )
-                resourcePattern2 = re.compile(
-                    '\((\w|:|\/|-|@|\.)*' + filename_clean + '\)'
                 )
 
                 r['content'] = resourcePattern1.sub(
                      data_uris[filename], r['content']
                 )
-                r['content'] = resourcePattern2.sub(
-                    '(' + data_uris[filename] + ')', r['content']
-                )
                 logging.debug('Bundle created for resource: [%s] ', r['url'])
-
-        return resources[0]['content']
+        return resources[0]['content'].encode('utf8')
 
     def convertToDataUri(self, content, extension):
         """
@@ -451,9 +451,8 @@ class BundleMaker(object):
         else:
             pos = None
         extension = splitext(extension[:pos])[-1]
-        if extension == '':
+        if extension in self.remapped_mimes:
             extension = '.html'
-
 
         # Deal with files not covered by mimetypes
         # for example .ttf
@@ -462,7 +461,7 @@ class BundleMaker(object):
 
         dataURI = 'data:' + mimetype + ';base64,'
         if self.isSearchableFile(str(extension)):
-            dataURI =  dataURI + base64.b64encode(content)
+            dataURI =  dataURI + base64.b64encode(content.encode('utf8'))
         else:
             dataURI = dataURI + content
 
