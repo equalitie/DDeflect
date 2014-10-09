@@ -3,16 +3,24 @@ general:
   bundler_path: http://127.0.0.1:{{ bundler_port }}/?url=
   url_salt: {{ bundlehash_salt }}
   port: 8000
+  host: 127.0.0.1
   refresh_period: 1800
   template_directory: /usr/share/bundlemanager/templates/
   pidfile: /var/run/bundlemanager/bundlemanager.pid
   uid_name: nobody
   gid_name: nogroup
+  comms_port: tcp://127.0.0.1:12345
 
 v_edges:
 {% for vedge, attributes in vedges.iteritems() %}
-  {{vedge}}:{{attributes["port"]}}:
+  http://{{vedge}}:{{attributes["port"]}}:
     availability:
       start: {{attributes["availability"]["start"]}}
       end: {{attributes["availability"]["end"]}}
+{% endfor %}
+
+remap:
+{% for site, attributes in remap.iteritems() %}
+   {{site}}:
+     origin: {{attributes["origin"]}}
 {% endfor %}
