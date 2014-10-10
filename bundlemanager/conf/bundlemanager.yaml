@@ -9,6 +9,7 @@ general:
   pidfile: /var/run/bundlemanager/bundlemanager.pid
   uid_name: nobody
   gid_name: nogroup
+  wsgi_port: 8200
 
 v_edges:
   "vedge":
