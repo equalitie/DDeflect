@@ -111,7 +111,7 @@ class BundleMaker(object):
         conf file
         """
 
-        parsed_url = urlparse.urlparse(request_url)
+        parsed_url = urlparse(request_url)
 
         return "{0}://{1}{2}{3}".format(parsed_url.scheme,
                                         remap_domain['origin'],
@@ -198,7 +198,7 @@ class BundleMaker(object):
             #This is not very intelligent, as it heavily restricts using
             #your own CDN for example
 
-            parsed_url = urlparse.urlparse(r.url)
+            parsed_url = urlparse(r.url)
             remapped_url = self.remapReqURL(remap_host, parsed_url.path, r.url)
 
             resourcePage = requests.get(

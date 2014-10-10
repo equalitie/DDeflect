@@ -21,6 +21,14 @@ import logging
 import logging.handlers
 #from datetime import datetime, time
 
+try: 
+    import settings
+except IOError: 
+    if __name__ == "__main__": 
+        pass
+    else: 
+        raise
+
 from bundler import BundleMaker
 from ghost import Ghost
 
@@ -123,19 +131,20 @@ class VedgeManager(object):
 
 class DebundlerServer(flask.Flask):
 
-    def __init__(self, salt, refresh_period, remap_rules,
-                 debundler_maker, vedge_manager, template_directory=""):
+    def __init__(self):
         super(DebundlerServer, self).__init__("DebundlerServer")
-        if template_directory:
-            self.template_folder = template_directory
-        self.debundler_maker = debundler_maker
-        self.vedge_manager = vedge_manager
-        self.bundles = collections.defaultdict(dict)
-        self.remap_rules = remap_rules
-        self.bundleMaker = BundleMaker(remap_rules)
+        if "template_directory" in settings.general:
+            self.template_folder = settings.general["template_directory"]
 
-        self.salt = salt
-        self.refresh_period = refresh_period
+        self.debundler_maker = DebundlerMaker(settings.general["refresh_period"])
+        self.vedge_manager = VedgeManager(settings.v_edges)
+
+        self.bundles = collections.defaultdict(dict)
+        self.remap_rules = settings.remap
+        self.bundleMaker = BundleMaker(self.remap_rules)
+
+        self.salt = settings.general["url_salt"]
+        self.refresh_period = settings.general["refresh_period"]
 
         self.redis = redis.Redis()
 
@@ -145,7 +154,7 @@ class DebundlerServer(flask.Flask):
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
         self.route('/<path:path>',  methods=['POST'])(self.postRoute)
-        self.bundleMaker = BundleMaker(remap_rules)
+        self.bundleMaker = BundleMaker(self.remap_rules)
 
     def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
@@ -286,7 +295,7 @@ class DebundlerServer(flask.Flask):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
         if not self.redis.sismember("bundles", bundlehash):
              logging.error("Got request for bundle %s but it is not in the bundles list", bundlehash)
-            flask.abort(404)
+             flask.abort(404)
         bundle_get = json.loads(self.redis.get(bundlehash))
         if "bundle" not in bundle_get:
             logging.error("Failed to get a valid bundle from bundle key %s", bundlehash)
@@ -362,38 +371,25 @@ class DebundlerServer(flask.Flask):
             return resp
 
 class bundleManagerDaemon():
-    def __init__(self, pidfile, config, stdin='/dev/stdin',
+    def __init__(self, stdin='/dev/stdin',
                 stdout='/dev/stdout', stderr='/dev/stderr'):
         self.stdin = stdin
         self.stdout = stdout
         self.stderr = stderr
-        self.pidfile = pidfile
-        self.config = config
         self.debundleServer = None
 
     def run(self):
 
-        port = self.config["general"]["port"]
-        host = self.config["general"]["host"]
-        url_salt = self.config["general"]["url_salt"]
+        port = settings.general["port"]
+        host = settings.general["host"]
 
-        refresh_period = self.config["general"]["refresh_period"]
-        template_directory = self.config["general"]["template_directory"]
-
-        vedge_data = self.config["v_edges"]
-        remap_rules = self.config["remap"]
-
-        d = DebundlerMaker(refresh_period)
-        v = VedgeManager(vedge_data)
-        self.debundleServer = DebundlerServer(url_salt, refresh_period,
-                                            remap_rules, d, v,
-                                            template_directory=template_directory)
+        self.debundleServer = DebundlerServer()
         logging.info("Starting to serve on port %d", port)
         self.debundleServer.run(debug=False, threaded=True, host=host, port=port, use_reloader=False)
 
     def delpid(self):
-        if os.path.exists(self.pidfile):
-            os.remove(self.pidfile)
+        if os.path.exists(settings.general["pidfile"]):
+            os.remove(settings.general["pidfile"])
 
     def daemonise(self):
         try:
@@ -413,12 +409,12 @@ class bundleManagerDaemon():
             sys.exit(1)
         pid = str(os.getpid())
 
-        with open(self.pidfile, 'w+') as f:
+        with open(settings.general["pidfile"], 'w+') as f:
             f.write("%s\n" % pid)
 
     def getpid(self):
         try:
-            pf = file(self.pidfile, 'r')
+            pf = file(settings.general["pidfile"], 'r')
             pid = int(pf.read().strip())
             pf.close()
         except IOError:
@@ -476,7 +472,7 @@ def dropPrivileges(uid_name='nobody', gid_name='no_group'):
         logging.error('Could not set effective group id: %s', e)
     old_umask = os.umask(077)
 
-def createHandler(daemon,config_path):
+def createHandler(daemon):
     def _handleSignal(signum, frame):
         if signum == signal.SIGTERM:
             daemon.stop()
@@ -484,9 +480,10 @@ def createHandler(daemon,config_path):
         elif signum == signal.SIGHUP:
             if daemon.debundleServer:
                 logging.warn("Reload V-Edge list")
-                config = yaml.load(open(args.config_path).read())
+                #config = yaml.load(open(args.config_path).read())
+                settings = reload(settings)
                 daemon.debundleServer.reloadVEdges(
-                    VedgeManager(config['v_edges'])
+                    VedgeManager(settings.v_edges)
                 )
     return _handleSignal
 
@@ -501,6 +498,12 @@ if __name__ == "__main__":
                         help = 'Verbose mode, not daemonized')
 
     args = parser.parse_args()
+    if "BUNDLEMANAGER_CONFIG" not in os.environ: 
+        #Backwards compatability
+        os.environ["BUNDLEMANAGER_CONFIG"] = args.config_path
+
+    global settings
+    import settings
 
     logger = logging.getLogger()
     if args.verbose:
@@ -512,17 +515,13 @@ if __name__ == "__main__":
     handler.setFormatter(logging.Formatter("bundlemanager [%(process)d] %(levelname)s %(message)s"))
     logger.addHandler(handler)
 
-    logging.info("Loading config from %s", args.config_path)
-    config = yaml.load(open(args.config_path).read())
-
     #TODO Dropping here breaks binding to ports less than 1025
-    dropPrivileges(config["general"]["uid_name"],
-                   config["general"]["gid_name"])
+    dropPrivileges(settings.general["uid_name"],
+                   settings.general["gid_name"])
 
-    pidfile = config['general']['pidfile']
-    daemon = bundleManagerDaemon(pidfile, config)
-    signal.signal(signal.SIGTERM, createHandler(daemon, args.config_path))
-    signal.signal(signal.SIGHUP, createHandler(daemon, args.config_path))
+    daemon = bundleManagerDaemon()
+    signal.signal(signal.SIGTERM, createHandler(daemon))
+    signal.signal(signal.SIGHUP, createHandler(daemon))
 
     if args.verbose:
         daemon.run()
