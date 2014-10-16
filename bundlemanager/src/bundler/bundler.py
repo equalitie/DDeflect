@@ -4,6 +4,8 @@
 """
 Python modules
 """
+import lxml.html
+import HTMLParser
 from os.path import splitext
 import urlparse
 import json
@@ -29,52 +31,6 @@ from Crypto.Cipher import AES
 need to compile all regexes
 """
 
-class ResourceCollector( Thread ):
-
-    def __init__(self, queue, result_queue, main_url):
-        Thread.__init__(self)
-        self.resource_queue = queue
-        self.resource_result_queue = resource_result_queue
-        self.main_url = main_url
-        self.daemon = True
-
-    def run(self):
-        """
-        This method manages the task for the resource collector
-        threads.
-        It retrieves and process resource urls appending them to the result Queue
-        """
-        logging.debug('Thread started')
-        while True:
-            url = self.resource_queue.get()
-
-            resourcePage = requests.get(
-                url,
-                timeout=8,
-                verify=False
-            )
-
-            content = ''
-            if self.isSearchableFile(url) or url == self.main_url:
-                content = resourcePage.content #.encode('utf8')
-            else:
-                content = base64.b64encode(resourcePage.content)
-
-            if resourcePage.status_code == requests.codes.ok:
-                logging.debug('Get resource: %s', url)
-                self.resource_result_queue.put(
-                    {
-                        "content": content,
-                        "url": resourcePage.url
-                    }
-                )
-            else:
-                logging.error('Failed to get resource: %s',url)
-
-            self.resource_queue.task_done()
-        logging.debug('Thread exiting')
-
-
 class BundleMaker(object):
     """
     Just for the joy of it, let's compile the ton
@@ -88,7 +44,7 @@ class BundleMaker(object):
         '(^https?:\/\/|\.{0,2}\/?)((?:\w|-|@|\.|\?|\=|&|%)+)'
     )
     reTestForFile = re.compile(
-        '\/(\w|-|@)+(\w|\?|\=|\.|-|&|%)+$'
+        '(\w|-|@)+(\w|\?|\=|\.|-|&|%)+$'
     )
     reGetExtOnly = re.compile('\.\w+')
 
@@ -97,7 +53,7 @@ class BundleMaker(object):
         Only important thing to setup here is Ghost, which will drive the key
         aspect of bundler - getting the resource list
         """
-        self.htmlparser = HTMLParser()
+        self.htmlparser = HTMLParser.HTMLParser()
         self.key = None
         self.iv = None
         self.hmackey = None
@@ -106,7 +62,7 @@ class BundleMaker(object):
         self.resource_result_queue = Queue(maxsize=0)
         #self.THREAD_COUNT = THREAD_COUNT
         self.main_url = None
-
+        self.data_uris = {}
         # Add mime type to handle php
         self.remapped_mimes = [
                                 '',
@@ -115,11 +71,10 @@ class BundleMaker(object):
         ctx = zmq.Context()
         self.socket = ctx.socket(zmq.REQ)
         self.socket.connect(comms_port)
-
         """
         Setup resource collection threads
         """
-        for i in range( 20):
+        for i in range(40):
             t = Thread(target=self.resourceCollectorThread)
             t.daemon = True
             t.start()
@@ -307,7 +262,6 @@ class BundleMaker(object):
                 else:
                     content = base64.b64encode(resourcePage.content)
             
-                logging.debug('%s got resource: %s  ', thread_num, url)
                 self.resource_result_queue.put(
                     {
                         "content": content,
@@ -354,7 +308,7 @@ class BundleMaker(object):
         new_resources = list( self.resource_result_queue.queue )
         # Annoyingly order matters a great deal
         # because if A references B reference C, we have to bundle C then
-        # B then A otherwise A might end up with a bundle of C that doesn't
+        # B then A otherwise A might end up with a bundle of B that doesn't
         # have the datauri for C but has the original URI instead
         new_resources.sort(key = lambda k: k['position'])
 
@@ -395,50 +349,80 @@ class BundleMaker(object):
 
         There is a flaw in this system.
         """
-        data_uris = {}
-        start =time.time()
+        self.data_uris = {}
+        resource_list = [item['url'] for item in resources]
+
         for r in reversed(resources):
-            logging.debug('Testing resource: [%s] ', r['url'])
             if not r['content'] or r['content'] < 262144:
                 continue
             if r['url'] != self.main_url:
                 if not self.isSearchableFile(r['url']):
                     continue
-               
-            logging.debug('Scanning resource: [%s] ', r['url'])
-            for j in reversed(resources):
-                if j['url'] == self.main_url:
+                if not any(
+                    resource in r['content'] for resource in resource_list
+                    ):
                     continue
-                # This regex needs to be reconsidered
-                # at present just take the last element of the returned list
-                filename = BundleMaker.reCatchUri.findall(j['url'])
+                
+                r['content'] = self.buildDataURIs(
+                                                r['content'],
+                                                r['url'],
+                                                resources[0]['url']
+                                            )
+            else:
+                self.buildDataURIs(
+                                    r['content'],
+                                    r['url'],
+                                    r['url']
+                                )
+                r['content'] = lxml.html.rewrite_links(
+                                    r['content'],
+                                    self.generate_link_from_datauri
+                                )
 
-                filename = filename[-1][0] + filename[-1][1]
+        return resources[0]['content'].encode('utf8')
 
-                if not BundleMaker.reTestForFile.search(filename): continue
+    def buildDataURIs(self, content, url, main_url):
+        for j in reversed(resources):
+            if j['url'] == main_url:
+                continue
+            
+            # This regex needs to be reconsidered
+            # at present just take the last element of the returned list
+            #filename = BundleMaker.reCatchUri.findall(j['url'])
 
-                filename = filename[1:]
-                if filename not in r['content'].decode('utf-8'):
-                    continue
-		if filename not in data_uris:
-                    data_uris[filename] = self.convertToDataUri(
-                        j['content'],
-                        filename
-                    )
+            #filename = filename[-1][0] + filename[-1][1]
+            filename = j['url'].split('/')[-1]
+            if not BundleMaker.reTestForFile.search(filename): continue
 
+            #filename = filename[1:]
+            if filename not in content:
+                continue
+            if filename not in self.data_uris:
+                self.data_uris[filename] = self.convertToDataUri(
+                    j['content'],
+                    filename
+                )
+            # use of global variable, how gauche
+            if url != main_url:
                 filename_clean = filename.replace('?', '\?')
                 filename_clean = filename_clean.replace('.', '\.')
                 # Error caused by first star in python 2.7.3
                 # Removed it and functionality seems uneffected
                 resourcePattern1 = re.compile(
-                    '[\'|\"|\(][^\"|\']*' + filename_clean + '[\'|\"|\)]'
+                    '[\'|\"|\(]([^\"|\'|\(]*' + filename_clean + ')[\'|\"|\)]'
                 )
 
-                r['content'] = resourcePattern1.sub(
-                     data_uris[filename], r['content']
+                content = resourcePattern1.sub(
+                     data_uris[filename], content
                 )
-                logging.debug('Bundle created for resource: [%s] ', r['url'])
-        return resources[0]['content'].encode('utf8')
+        return content
+
+    def generate_link_from_datauri(self, link):
+        filename = link.split('/')[-1]
+        if filename in self.data_uris and filename in link:
+            return self.data_uris[filename]
+        else:
+            return link
 
     def convertToDataUri(self, content, extension):
         """

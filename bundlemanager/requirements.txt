@@ -6,3 +6,4 @@ pyzmq
 redis
 pyyaml
 jinja2
+lxml
