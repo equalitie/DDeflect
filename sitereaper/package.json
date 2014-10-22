@@ -1,11 +1,8 @@
 {
-  "name": "Bundler",
+  "name": "Site Reaper",
   "version": "0.0.1",
-  "author": "Nadim Kobeissi <nadim@equalit.ie>",
+  "author": "Bill Doran <bill@equalit.ie>",
   "private": true,
-  "scripts": {
-    "start": "node bundler"
-  },
   "dependencies": {
     "faye-websocket": "latest",
     "zmq": "latest",

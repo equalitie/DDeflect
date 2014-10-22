@@ -89,13 +89,11 @@ class BundleMaker(object):
         """
         logging.debug("Processing request for: %s", request.url)
 
-        logging.debug("Get remap domain")
         host = request.headers['host']
         remap_domain = self.remap_rules[host]['origin'] if host in self.remap_rules else None
         if not remap_domain:
             logging.debug("No remap found for domain: %s", host)
             return None
-        logging.debug("Remap found")
 
         self.key = key
         self.iv = iv
@@ -129,7 +127,7 @@ class BundleMaker(object):
             "host": host,
             "remapped_host": remap_domain
         })
-        logging.debug("Sending request to site reaper")
+        logging.debug("Sending request to site reaper for domain: %s and page: %s", host, remapped_url)
         self.socket.send(work_set)
 
         reaped_resources = self.socket.recv()
@@ -243,7 +241,6 @@ class BundleMaker(object):
         It retrieves and process resource urls appending them to the result Queue
         """
         thread_num = currentThread()
-        logging.debug('%s thread started', thread_num)
         while True:
             item = self.resource_queue.get()
             url = item['url']
@@ -256,7 +253,6 @@ class BundleMaker(object):
             if resourcePage.status_code == requests.codes.ok:
                 content = ''
                 logging.debug('%s got content for url: %s', thread_num, url)
-                logging.debug(self.main_url)
                 if self.isSearchableFile(url) or url == self.main_url:
                     content = self.htmlparser.unescape( resourcePage.content)
                 else:
@@ -289,7 +285,6 @@ class BundleMaker(object):
         #self.resource_result_queue = Queue( len(resources) )
 
         resource_set = []
-        logging.debug('Building resource queue')
 
         self.main_url = resources[0]['url']
         position = 0
@@ -303,9 +298,7 @@ class BundleMaker(object):
                 position += 1
 
         logging.debug('Waiting for workers to complete')
-        self.resource_queue.join()
         logging.debug('Resources retrieved')
-        new_resources = list( self.resource_result_queue.queue )
         # Annoyingly order matters a great deal
         # because if A references B reference C, we have to bundle C then
         # B then A otherwise A might end up with a bundle of B that doesn't
@@ -346,8 +339,6 @@ class BundleMaker(object):
         The outter loop identifies resource that can contain references, such
         as CSS, XML, plain etc. The inner loop bundles each resource as a dataURI
         and then replaces all references with in the outter loop element.
-
-        There is a flaw in this system.
         """
         self.data_uris = {}
         resource_list = [item['url'] for item in resources]
@@ -386,15 +377,9 @@ class BundleMaker(object):
             if j['url'] == main_url:
                 continue
             
-            # This regex needs to be reconsidered
-            # at present just take the last element of the returned list
-            #filename = BundleMaker.reCatchUri.findall(j['url'])
-
-            #filename = filename[-1][0] + filename[-1][1]
             filename = j['url'].split('/')[-1]
             if not BundleMaker.reTestForFile.search(filename): continue
 
-            #filename = filename[1:]
             if filename not in content:
                 continue
             if filename not in self.data_uris:

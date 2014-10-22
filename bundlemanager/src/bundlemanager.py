@@ -270,7 +270,6 @@ class DebundlerServer(flask.Flask):
         Passes POST request directly to the remapped origin
         returns the server's response
         """
-        import ipdb
         request_host = flask.request.headers.get('Host')
         remap_host = ''
         if request_host in self.remap_rules:
