@@ -1,0 +1,16 @@
+Source: reaper
+Section: web
+Priority: optional
+Maintainer: Distributed Deflect Packaging <sysops@equalit.ie>
+Build-Depends:
+        debhelper
+Standards-Version: 3.9.1
+
+Package: reaper
+Architecture: all
+Depends:
+        nodejs,
+        phantomjs
+Description: Returns site and resource 
+ content to be bundled via bundlemanager as part of the
+ Distributed Deflect project.

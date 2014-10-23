@@ -2,8 +2,8 @@ flask
 pycrypto
 requests
 nose
-ghost.py
+pyzmq
 redis
 pyyaml
 jinja2
-pyside
+lxml

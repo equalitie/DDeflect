@@ -19,10 +19,9 @@ import signal
 import threading
 import logging
 import logging.handlers
-from datetime import datetime, time
+#from datetime import datetime, time
 
 from bundler import BundleMaker
-from ghost import Ghost
 
 def mash_dict(input_dict):
     #Mash together keys and values of a dict
@@ -59,7 +58,7 @@ class VedgeManager(object):
         self.vedge_data = vedge_data
         #self.redis = redis.Redis()
         self.vedge_threshold = 100
-
+    '''
     def populateRedisVEdges(self):
         """
         Set initial values for v-edges in redis
@@ -98,7 +97,7 @@ class VedgeManager(object):
         # key should be delted for bandwidth when that quantity is reached
         # in terms of bandwidth, this should be handled by the badnwidth 
         # recorder
-
+        '''
     def refreshVedges(self):
         """
         Rebuild v-edge list is number of available v-edges 
@@ -124,7 +123,7 @@ class VedgeManager(object):
 class DebundlerServer(flask.Flask):
 
     def __init__(self, salt, refresh_period, remap_rules,
-                 debundler_maker, vedge_manager, template_directory=""):
+                 debundler_maker, vedge_manager, comms_port, template_directory=""):
         super(DebundlerServer, self).__init__("DebundlerServer")
         if template_directory:
             self.template_folder = template_directory
@@ -132,8 +131,7 @@ class DebundlerServer(flask.Flask):
         self.vedge_manager = vedge_manager
         self.bundles = collections.defaultdict(dict)
         self.remap_rules = remap_rules
-        self.bundleMaker = BundleMaker(remap_rules)
-
+        self.bundleMaker = BundleMaker(remap_rules, comms_port)
         self.salt = salt
         self.refresh_period = refresh_period
 
@@ -141,11 +139,11 @@ class DebundlerServer(flask.Flask):
 
         #wildcard routing
         self.route('/', defaults={'path': ''})(self.rootRoute)
+        self.route('/',  methods=['POST'])(self.postRoute)
         self.route("/_bundle/")(self.serveBundle)
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
         self.route('/<path:path>',  methods=['POST'])(self.postRoute)
-        self.bundleMaker = BundleMaker(remap_rules)
 
     def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
@@ -230,15 +228,8 @@ class DebundlerServer(flask.Flask):
 
     def genBundle(self, frequest, path, key, iv, hmac_key):
         request_host = frequest.headers.get('Host')
-
-        if request_host in self.remap_rules:
-            remap_host = self.remap_rules[request_host]
-        else:
-            return None
-
         logging.debug("Bundle request url is %s",  frequest.url)
         bundler_result = self.bundleMaker.createBundle(frequest,
-                                                       remap_host,
                                                        key,
                                                        iv,
                                                        hmac_key
@@ -279,9 +270,36 @@ class DebundlerServer(flask.Flask):
         Passes POST request directly to the remapped origin
         returns the server's response
         """
-        remapped_origin = self.bundleMaker.remapReqURL(flask.request)
-        return flask.redirect(remapped_origin, code=307)
+        request_host = flask.request.headers.get('Host')
+        remap_host = ''
+        if request_host in self.remap_rules:
+            remap_host = self.remap_rules[request_host]
+        else:
+            #Return 404
+            return None
+        
+        # Whitelist a few headers to pass on
+        request_headers = {}
+        for h in ["Cookie", "Referer", "X-Csrf-Token", "Content-Length"]:
+            if h in flask.request.headers:
+                request_headers[h] = flask.request.headers[h]
+        
+        request_headers['Host'] = request_host
 
+        remapped_origin = self.bundleMaker.remapReqURL(remap_host, flask.request)
+        
+        proxied_response = requests.post(
+                remapped_origin,
+                headers = request_headers,
+                files = flask.request.files,
+                data = flask.request.form,
+                cookies = flask.request.cookies,
+
+        )
+        
+        return flask.Response(
+                    response=proxied_response
+                )
     def serveBundle(self, bundlehash):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
         if not self.redis.sismember("bundles", bundlehash):
@@ -378,11 +396,12 @@ class bundleManagerDaemon():
 
         vedge_data = self.config["v_edges"]
         remap_rules = self.config["remap"]
+        comms_port = self.config["general"]["comms_port"]
 
         d = DebundlerMaker(refresh_period)
         v = VedgeManager(vedge_data)
         self.debundleServer = DebundlerServer(url_salt, refresh_period,
-                                            remap_rules, d, v,
+                                            remap_rules, d, v, comms_port,
                                             template_directory=template_directory)
         logging.info("Starting to serve on port %d", port)
         self.debundleServer.run(debug=True, threaded=True, host=host, port=port, use_reloader=False)
