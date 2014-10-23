@@ -115,7 +115,6 @@ class BundleMaker(object):
         logging.debug('Getting remap rule for request')
         remapped_url = self.remapReqURL(remap_domain, request)
 
-
         if not remapped_url:
             logging.error('No remap rule found for: %s', request.headers['host'])
             return None
@@ -154,7 +153,7 @@ class BundleMaker(object):
             "hmac_sig": hmac_sig
         }
 
-    def remapReqURL(self, remap_domain, request):
+    def remapReqURL(self, remap_domain, request_path, request_url):
         """
         Remap given url based on rules defined by
         conf file

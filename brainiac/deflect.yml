@@ -3,7 +3,17 @@
 trafserv_id: 99
 trafserv_gid: 99
 
+trafficserver_user: trafserv
+trafficserver_group: trafserv
+
+default_ssl_key: deflect.ca.key
+default_ssl_cert: deflect.ca.crt
+default_ssl_ca: deflect.ca.CA.crt
+
 
 trafserv_home: /var/run/trafficserver/
 bundlehash_salt: feise4iephohng4ahteequu3paKoaQuaeviashim
 bundler_port: 3000
+bundlemanager_port: 8000
+
+dns_primary: SUPER_SEKRIT
