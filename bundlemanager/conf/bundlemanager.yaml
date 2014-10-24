@@ -9,7 +9,9 @@ general:
   pidfile: /var/run/bundlemanager/bundlemanager.pid
   uid_name: nobody
   gid_name: nogroup
+  wsgi_port: 8200
   comms_port: "tcp://127.0.0.1:12345"
+
 v_edges:
   "http://127.0.0.1:8000":
     availability:

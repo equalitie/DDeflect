@@ -239,10 +239,12 @@ class BundleMaker(object):
         threads.
         It retrieves and process resource urls appending them to the result Queue
         """
+
         thread_num = currentThread()
         while True:
             item = self.resource_queue.get()
             url = item['url']
+
             resourcePage = requests.get(
                 item['url'],
                 timeout=8,
