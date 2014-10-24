@@ -358,12 +358,14 @@ class BundleMaker(object):
                     continue
                 
                 r['content'] = self.buildDataURIs(
+                                                resources,
                                                 r['content'],
                                                 r['url'],
                                                 resources[0]['url']
                                             )
             else:
                 self.buildDataURIs(
+                                    resources,
                                     r['content'],
                                     r['url'],
                                     r['url']
@@ -375,7 +377,7 @@ class BundleMaker(object):
 
         return resources[0]['content'].encode('utf8')
 
-    def buildDataURIs(self, content, url, main_url):
+    def buildDataURIs(self, resources, content, url, main_url):
         for j in reversed(resources):
             if j['url'] == main_url:
                 continue
