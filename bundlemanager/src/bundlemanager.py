@@ -251,7 +251,7 @@ class DebundlerServer(flask.Flask):
                                                        )
 
         if not bundler_result:
-            logging.error("Failed to get bundle for %s: %s (%s)", frequest.url)
+            logging.error("Failed to get bundle for %s", frequest.url)
             flask.abort(503)
         logging.debug("Bundle constructed and returned")
 
