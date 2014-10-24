@@ -42,3 +42,7 @@ coverage.xml
 docs/_build/
 # PyBuilder
 target/
+# Debian stuff
+*.deb
+*.dsc
+*.changes
