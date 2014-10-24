@@ -3,7 +3,7 @@
 from tornado.wsgi import WSGIContainer
 from tornado.httpserver import HTTPServer
 from tornado.ioloop import IOLoop
-import settings
+from bundler import settings
 
 http_server = HTTPServer(WSGIContainer(DebundlerServer()))
 http_server.listen(settings.general["wsgi_port"])

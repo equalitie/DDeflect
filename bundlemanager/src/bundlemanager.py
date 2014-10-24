@@ -22,7 +22,7 @@ import logging.handlers
 #from datetime import datetime, time
 
 try: 
-    import settings
+    from bundler import settings
 except IOError: 
     # IO Error means that we can't load the default settings file.
     if __name__ == "__main__": 
@@ -527,7 +527,7 @@ if __name__ == "__main__":
 
     #Make settings import/reimport available everywhere.
     global settings
-    import settings
+    from bundler import settings
 
     logger = logging.getLogger()
     if args.verbose:
