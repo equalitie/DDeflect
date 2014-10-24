@@ -34,7 +34,6 @@ except IOError:
         raise
 
 from bundler import BundleMaker
-from ghost import Ghost
 
 def mash_dict(input_dict):
     #Mash together keys and values of a dict
@@ -135,6 +134,7 @@ class VedgeManager(object):
 
 class DebundlerServer(flask.Flask):
 
+
     def __init__(self):
         super(DebundlerServer, self).__init__("DebundlerServer")
         if "template_directory" in settings.general:
@@ -145,7 +145,7 @@ class DebundlerServer(flask.Flask):
 
         self.bundles = collections.defaultdict(dict)
         self.remap_rules = settings.remap
-        self.bundleMaker = BundleMaker(self.remap_rules)
+        self.bundleMaker = BundleMaker(self.remap_rules, settings.general["comms_port"])
 
         self.salt = settings.general["url_salt"]
         self.refresh_period = settings.general["refresh_period"]
@@ -154,11 +154,11 @@ class DebundlerServer(flask.Flask):
 
         #wildcard routing
         self.route('/', defaults={'path': ''})(self.rootRoute)
+        self.route('/',  methods=['POST'])(self.postRoute)
         self.route("/_bundle/")(self.serveBundle)
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
         self.route('/<path:path>',  methods=['POST'])(self.postRoute)
-        self.bundleMaker = BundleMaker(self.remap_rules)
 
     def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
@@ -243,15 +243,8 @@ class DebundlerServer(flask.Flask):
 
     def genBundle(self, frequest, path, key, iv, hmac_key):
         request_host = frequest.headers.get('Host')
-
-        if request_host in self.remap_rules:
-            remap_host = self.remap_rules[request_host]
-        else:
-            return None
-
         logging.debug("Bundle request url is %s",  frequest.url)
         bundler_result = self.bundleMaker.createBundle(frequest,
-                                                       remap_host,
                                                        key,
                                                        iv,
                                                        hmac_key
@@ -292,9 +285,36 @@ class DebundlerServer(flask.Flask):
         Passes POST request directly to the remapped origin
         returns the server's response
         """
-        remapped_origin = self.bundleMaker.remapReqURL(flask.request)
-        return flask.redirect(remapped_origin, code=307)
+        request_host = flask.request.headers.get('Host')
+        remap_host = ''
+        if request_host in self.remap_rules:
+            remap_host = self.remap_rules[request_host]
+        else:
+            #Return 404
+            return None
+        
+        # Whitelist a few headers to pass on
+        request_headers = {}
+        for h in ["Cookie", "Referer", "X-Csrf-Token", "Content-Length"]:
+            if h in flask.request.headers:
+                request_headers[h] = flask.request.headers[h]
+        
+        request_headers['Host'] = request_host
 
+        remapped_origin = self.bundleMaker.remapReqURL(remap_host, flask.request)
+        
+        proxied_response = requests.post(
+                remapped_origin,
+                headers = request_headers,
+                files = flask.request.files,
+                data = flask.request.form,
+                cookies = flask.request.cookies,
+
+        )
+        
+        return flask.Response(
+                    response=proxied_response
+                )
     def serveBundle(self, bundlehash):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
         if not self.redis.sismember("bundles", bundlehash):
