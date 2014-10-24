@@ -153,7 +153,7 @@ class BundleMaker(object):
             "hmac_sig": hmac_sig
         }
 
-    def remapReqURL(self, remap_domain, request_path, request_url):
+    def remapReqURL(self, remap_domain, request):
         """
         Remap given url based on rules defined by
         conf file
@@ -292,6 +292,7 @@ class BundleMaker(object):
         for r in resources:
             if r['url'] not in resource_set:
                 resource_set.append(str(r['url']))
+
                 self.resource_queue.put({
                     'url':str(r['url']),
                     'position':position
@@ -304,6 +305,7 @@ class BundleMaker(object):
         # because if A references B reference C, we have to bundle C then
         # B then A otherwise A might end up with a bundle of B that doesn't
         # have the datauri for C but has the original URI instead
+        
         new_resources.sort(key = lambda k: k['position'])
 
         return new_resources
