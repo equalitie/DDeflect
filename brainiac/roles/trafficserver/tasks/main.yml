@@ -1,23 +1,40 @@
 ---
+
+- name: Uninstall any existing webserers
+  apt: pkg={{item}} state=absent
+  with_items:
+    - lighttpd
+    - apache2
+    - nginx
+
 - name: Install ATS
   apt: pkg={{item}} state=installed
   with_items:
     - trafficserver
-  tags: ats
 
 - name: enable ATS init script
   file: src=trafficserver.default dest=/etc/default/trafficserver
-  tags: ats
+
+- name: Make trafficserver SSH directory
+  file: path={{trafserv_home}}/.ssh state=directory owner=trafficserver group=trafficserver
+
+- name: Install trafficserver SSH key
+  authorized_key: user=trafficserver
+                  key="{{ lookup('file', [sensitive_files,'trafficserver_id_rsa.pub']|join("")) }}"
+                  path='{{trafserv_home}}/.ssh/authorized_keys'
+                  manage_dir=no
 
 - name: set up ATS service
   service: name=trafficserver state=started enabled=yes
-  tags: ats
 
 - name: chown ATS directory
   file: path=/etc/trafficserver owner={{ trafficserver_user }} group={{ trafficserver_group }}
-  tags: ats
 
 - include: config.yml
-  tags: ats
+  when: not vedge
+
+- include: vedge.yml
+  when: vedge
+
 - include: ssl.yml
-  tags: ats
+  when: not vedge
