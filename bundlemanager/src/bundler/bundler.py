@@ -299,13 +299,15 @@ class BundleMaker(object):
                 position += 1
 
         logging.debug('Waiting for workers to complete')
+        self.resource_queue.join()
         logging.debug('Resources retrieved')
+        new_resources = list( self.resource_result_queue.queue )
         # Annoyingly order matters a great deal
         # because if A references B reference C, we have to bundle C then
         # B then A otherwise A might end up with a bundle of B that doesn't
         # have the datauri for C but has the original URI instead
         new_resources.sort(key = lambda k: k['position'])
-
+        
         return new_resources
 
     def isSearchableFile(self, url):
