@@ -5,7 +5,6 @@
 Python modules
 """
 import lxml.html
-import HTMLParser
 from os.path import splitext
 import urlparse
 import json
@@ -255,7 +254,7 @@ class BundleMaker(object):
                 content = ''
                 logging.debug('%s got content for url: %s', thread_num, url)
                 if self.isSearchableFile(url) or url == self.main_url:
-                    content = self.htmlparser.unescape( resourcePage.content)
+                    content = self.htmlparser.unescape( resourcePage.text )
                 else:
                     content = base64.b64encode(resourcePage.content)
             
@@ -309,6 +308,7 @@ class BundleMaker(object):
         # have the datauri for C but has the original URI instead
         
         new_resources.sort(key = lambda k: k['position'])
+        self.main_url = new_resources[0]['url']
         
         return new_resources
 
@@ -346,7 +346,7 @@ class BundleMaker(object):
         and then replaces all references with in the outter loop element.
         """
         self.data_uris = {}
-        resource_list = [item['url'] for item in resources]
+        resource_list = [item['url'].split('/')[-1] for item in resources]
 
         for r in reversed(resources):
             if not r['content'] or r['content'] < 262144:
@@ -405,7 +405,7 @@ class BundleMaker(object):
                 )
 
                 content = resourcePattern1.sub(
-                     data_uris[filename], content
+                     self.data_uris[filename], content
                 )
         return content
 
