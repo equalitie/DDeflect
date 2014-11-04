@@ -7,8 +7,8 @@
 */
 
 var portScanner = require('portscanner'),
-  zmq         = require('zmq'),
-  socket      = zmq.socket('rep'),
+	http 	      = require('http'),
+	express     = require('express'),
 	phantom     = require('phantom'),
 	path        = require('path'),
 	fs          = require('fs'),
@@ -35,7 +35,22 @@ try {
 configData = configThing;
 console.log(configData);
 
-var Reaper = {};
+var listenport = 3000;
+var listenip = "127.0.0.1";
+if ("listen" in configData) {
+	if ("host" in configData) {
+		listenip = configdata["listen"]["host"];
+	}
+	if ("port" in configData) {
+		listenport = configData["listen"]["port"];
+	}
+}
+
+var Reaper = express()
+.use(require('compression')())
+.use(require('body-parser')())
+.use(require('method-override')());
+
 // print to commandline if -v
 Reaper.log = function(message) {
 	if (process.argv[2] == '-v') {
@@ -49,12 +64,30 @@ Reaper.log = function(message) {
 // phantomjs in the path. Jerk.
 process.env.PATH = process.env.PATH + ":../node_modules/phantomjs/bin";
 
-Reaper.loadPage = function( requestData ) {
+http.createServer(Bundler).listen(listenport, listenip, function() {
+	 //Drop privileges if running as root
+	if (process.getuid() === 0) {
+		console.log("Dropping privileges");
+		// TODO actually have these values read out of config - config
+		// is usually read AFTER this point
+		if ("group" in configData) {
+			console.log("Dropping group to " + configData["group"]);
+			process.setgid(configData["group"]);
+		}
+		if ("user" in configData) {
+			console.log("Dropping user to " + configData["user"]);
+			process.setuid(configData["user"]);
+		}
+	}
+});
+
+Reaper.route('/').get(function(req, res) {
+	Reaper.loadPage(req, res);
+});
+
+Reaper.loadPage = function( req, res ) {
 	// Initialize collection of resources the website is dependent on.
 	// Will fetch resources as part of the bundle.
-  var req = JSON.parse(requestData);
-
-
 	// Visit the website, determine its HTML and the resources it depends on.
 	portScanner.findAPortNotInUse(40000, 60000, 'localhost', function(err, freePort) {
 		phantom.create(function(ph) {
@@ -62,19 +95,19 @@ Reaper.loadPage = function( requestData ) {
         var headers = {"Host": req.host};
         page.set("customHeaders", headers);
 				Reaper.retrieveResources(
-					req.url,  {
+					req.data.url, res,  {
 						ph: ph,
 						page: page,
-						host: req.host,
-            remapped_host: req.remapped_host
+						host: req.data.host,
+            remapped_host: req.data.remapped_host
 					});
 			});
-		}, {port: freePort}, '--ignore-ssl-errors=true'
+		}, {port: freePort}, '--ignore-ssl-errors=true', '--ssl-protocol=tlsv1'
 		);
 	});
 };
 
-Reaper.retrieveResources = function(url, proc) {
+Reaper.retrieveResources = function(url, res, proc) {
 	proc.resources = [];
 	proc.pageLoadedCutoff = false;
 	console.log('Initializing resource collection for ' + url);
@@ -102,29 +135,16 @@ Reaper.retrieveResources = function(url, proc) {
       }
       // We've loaded the page and know what its resources are.
       
-      socket.send( JSON.stringify(proc.resources) );
+      res.end( JSON.stringify(proc.resources) );
       console.log('Resources found: ' + JSON.stringify(proc.resources));
       proc.ph.exit();
     });
   } 
   catch (e){
     console.log(e);
-    socket.send( null );
+    res.end( null );
   }
 };
 
-//Initialise comms sockets
-//
-console.log('Binding to zmq port');
-socket.bind(configData.general.comms_port);
-console.log('Bound to zmq port');
-
-console.log('Awaiting requests');
-
-socket.on('message', function( siteRequest ){
-	console.log('Received ZMQ request');
-	console.log('Request: ' + siteRequest);
-  Reaper.loadPage(siteRequest);
-});
 
 

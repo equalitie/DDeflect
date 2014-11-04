@@ -1,3 +1,4 @@
 ---
-general:
-  comms_port: "tcp://127.0.0.1:12345"
+listen:
+  host : "127.0.0.1"
+  port : "12345"

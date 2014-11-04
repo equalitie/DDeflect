@@ -23,7 +23,6 @@ import HTMLParser
 """
 Third party modules
 """
-import zmq
 import requests
 from Crypto.Cipher import AES
 """
@@ -47,11 +46,12 @@ class BundleMaker(object):
     )
     reGetExtOnly = re.compile('\.\w+')
 
-    def __init__(self, remap_rules, comms_port):
+    def __init__(self, remap_rules, reaper_address):
         """
         Only important thing to setup here is Ghost, which will drive the key
         aspect of bundler - getting the resource list
         """
+        self.reaper_address = reaper_address
         self.htmlparser = HTMLParser.HTMLParser()
         self.key = None
         self.iv = None
@@ -67,9 +67,6 @@ class BundleMaker(object):
                                 '',
                                 '.php'
                                 ]
-        ctx = zmq.Context()
-        self.socket = ctx.socket(zmq.REQ)
-        self.socket.connect(comms_port)
         """
         Setup resource collection threads
         """
@@ -126,16 +123,18 @@ class BundleMaker(object):
             "remapped_host": remap_domain
         })
         logging.debug("Sending request to site reaper for domain: %s and page: %s", host, remapped_url)
-        self.socket.send(work_set)
 
-        reaped_resources = self.socket.recv()
+        reaped_resources = requests.post(
+                                            self.reaper_address,
+                                            data=work_set
+                                        )
         if not reaped_resources:
             logging.debug("No resources returned. Ending process")
             return None
         logging.debug("Received reaping results %s", reaped_resources)
 
 
-        ext_resources = json.loads(reaped_resources)
+        ext_resources = reaped_resources.json()
 
         resources = self.fetchResources(ext_resources)
 
