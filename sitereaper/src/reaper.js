@@ -64,19 +64,19 @@ Reaper.log = function(message) {
 // phantomjs in the path. Jerk.
 process.env.PATH = process.env.PATH + ":../node_modules/phantomjs/bin";
 
-http.createServer(Bundler).listen(listenport, listenip, function() {
+http.createServer(Reaper).listen(listenport, listenip, function() {
 	 //Drop privileges if running as root
 	if (process.getuid() === 0) {
 		console.log("Dropping privileges");
 		// TODO actually have these values read out of config - config
 		// is usually read AFTER this point
 		if ("group" in configData) {
-			console.log("Dropping group to " + configData["group"]);
-			process.setgid(configData["group"]);
+			console.log("Dropping group to " + configData["general"]["group"]);
+			process.setgid(configData["general"]["group"]);
 		}
 		if ("user" in configData) {
-			console.log("Dropping user to " + configData["user"]);
-			process.setuid(configData["user"]);
+			console.log("Dropping user to " + configData["general"]["user"]);
+			process.setuid(configData["general"]["user"]);
 		}
 	}
 });
