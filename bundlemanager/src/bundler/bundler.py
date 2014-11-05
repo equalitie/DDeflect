@@ -123,10 +123,11 @@ class BundleMaker(object):
             "remapped_host": remap_domain
         })
         logging.debug("Sending request to site reaper for domain: %s and page: %s", host, remapped_url)
-
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         reaped_resources = requests.post(
                                             self.reaper_address,
-                                            data=work_set
+                                            data=work_set,
+                                            headers=headers
                                         )
         if not reaped_resources:
             logging.debug("No resources returned. Ending process")

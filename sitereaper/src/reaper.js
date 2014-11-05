@@ -81,7 +81,7 @@ http.createServer(Reaper).listen(listenport, listenip, function() {
 	}
 });
 
-Reaper.route('/').get(function(req, res) {
+Reaper.route('/').post(function(req, res) {
 	Reaper.loadPage(req, res);
 });
 
@@ -89,17 +89,18 @@ Reaper.loadPage = function( req, res ) {
 	// Initialize collection of resources the website is dependent on.
 	// Will fetch resources as part of the bundle.
 	// Visit the website, determine its HTML and the resources it depends on.
+  console.log(req);
 	portScanner.findAPortNotInUse(40000, 60000, 'localhost', function(err, freePort) {
 		phantom.create(function(ph) {
 			ph.createPage(function(page) {
         var headers = {"Host": req.host};
         page.set("customHeaders", headers);
 				Reaper.retrieveResources(
-					req.data.url, res,  {
+					req.body.url, res,  {
 						ph: ph,
 						page: page,
-						host: req.data.host,
-            remapped_host: req.data.remapped_host
+						host: req.body.host,
+            remapped_host: req.body.remapped_host
 					});
 			});
 		}, {port: freePort}, '--ignore-ssl-errors=true', '--ssl-protocol=tlsv1'
