@@ -1,0 +1,6 @@
+---
+- name: records config
+  template: src=records.5.vedge.j2 dest=/etc/trafficserver/records.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
+
+- name: general remap config
+  template: src=remap.conf.vedge.j2 dest=/etc/trafficserver/remap.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
