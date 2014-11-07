@@ -16,6 +16,7 @@
     - tmux
     - screen
     - ntp
+    - ca-certificates
 
 - name: Ensure ntpd is running and enabled
   service: name=ntp state=running enabled=yes
