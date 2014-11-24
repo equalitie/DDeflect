@@ -59,14 +59,14 @@ class BundleMaker(object):
         self.remap_rules = remap_rules
         self.resource_queue = Queue(maxsize=0)
         self.resource_result_queue = Queue(maxsize=0)
-        #self.THREAD_COUNT = THREAD_COUNT
         self.main_url = None
         self.data_uris = {}
         # Add mime type to handle php
         self.remapped_mimes = [
-                                '',
-                                '.php'
-                                ]
+            '',
+            '.php'
+        ]
+
         """
         Setup resource collection threads
         """
@@ -96,7 +96,6 @@ class BundleMaker(object):
         self.hmackey = hmackey
 
         resources = []
-        #pageLoadCutoff = false
         resourceDomain = self.getResourceDomain(request.url)
 
         logging.debug("Retrieved resource domain as: %s", resourceDomain)
@@ -125,17 +124,22 @@ class BundleMaker(object):
         logging.debug("Sending request to site reaper for domain: %s and page: %s", host, remapped_url)
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         reaped_resources = requests.post(
-                                            self.reaper_address,
-                                            data=work_set,
-                                            headers=headers
-                                        )
+            self.reaper_address,
+            data=work_set,
+            headers=headers
+        )
+
         if not reaped_resources:
             logging.debug("No resources returned. Ending process")
             return None
-        logging.debug("Received reaping results %s", reaped_resources)
+        if not reaped_resources.ok:
+            logging.error("Resource requesting failed: %s", reaped_resources.text)
+            return None
 
+        logging.debug("Received reaping results %s", reaped_resources.text)
 
-        ext_resources = reaped_resources.json()
+        ext_resources = reaped_resources.json
+        logging.debug("JSON-decoded resources are %s", str(ext_resources))
 
         resources = self.fetchResources(ext_resources)
 
@@ -160,9 +164,6 @@ class BundleMaker(object):
 
         parsed_url = urlparse(request.url)
 
-        # Is this not going to simply discard all arguments?
-        #if '?' in request.url:
-
         return "{0}://{1}{2}{3}".format(
             parsed_url.scheme,
             remap_domain,
@@ -184,10 +185,9 @@ class BundleMaker(object):
             if not url.endswith("/"):
                 return url + "/"
         else:
-            #TOD0: Add error checking here
+            #TODO: Add error checking here
             resourceDomain = urlparse(url).hostname
-            if resourceDomain[-1] != '/':
-                resourceDomain = resourceDomain + '/'
+            resourceDomain = resourceDomain + '/'
 
         return resourceDomain
 
@@ -198,10 +198,10 @@ class BundleMaker(object):
         the bundle
         """
         return hmac.new(
-                    self.hmackey,
-                    bundle,
-                    hashlib.sha256
-                ).hexdigest()
+            self.hmackey,
+            bundle,
+            hashlib.sha256
+        ).hexdigest()
 
     def encryptBundle(self, content):
         """
@@ -213,11 +213,11 @@ class BundleMaker(object):
         iv = binascii.unhexlify(self.iv)
 
         aes = AES.new(
-                        key,
-                        AES.MODE_CFB,
-                        iv,
-                        segment_size=128
-                    )
+            key,
+            AES.MODE_CFB,
+            iv,
+            segment_size=128
+        )
 
         return base64.b64encode( aes.encrypt(padded_content) )
 
@@ -257,7 +257,7 @@ class BundleMaker(object):
                     content = self.htmlparser.unescape( resourcePage.text )
                 else:
                     content = base64.b64encode(resourcePage.content)
-            
+
                 self.resource_result_queue.put(
                     {
                         "content": content,
@@ -306,10 +306,10 @@ class BundleMaker(object):
         # because if A references B reference C, we have to bundle C then
         # B then A otherwise A might end up with a bundle of B that doesn't
         # have the datauri for C but has the original URI instead
-        
+
         new_resources.sort(key = lambda k: k['position'])
         self.main_url = new_resources[0]['url']
-        
+
         return new_resources
 
     def isSearchableFile(self, url):
@@ -358,7 +358,7 @@ class BundleMaker(object):
                     resource in r['content'] for resource in resource_list
                     ):
                     continue
-                
+
                 r['content'] = self.buildDataURIs(
                                                 resources,
                                                 r['content'],
@@ -383,7 +383,7 @@ class BundleMaker(object):
         for j in reversed(resources):
             if j['url'] == main_url:
                 continue
-            
+
             filename = j['url'].split('/')[-1]
             if not BundleMaker.reTestForFile.search(filename): continue
 
@@ -421,7 +421,7 @@ class BundleMaker(object):
         Taking resource content as input this function constructs a valid
         data URI and returns it
         """
-        # Strip url params 
+        # Strip url params
         if '?' in extension:
             pos = extension.index('?')
         else:
