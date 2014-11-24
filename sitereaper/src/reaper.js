@@ -131,21 +131,18 @@ Reaper.retrieveResources = function(url, res, proc) {
       console.log('Page opened');
       proc.pageLoadedCutoff = true;
       if (status !== 'success') {
-                      //TODO https://redmine.equalit.ie/redmine/issues/324
+        // TODO better logging here - "Fail" is almost useless
         console.log('Abort' + ': ' + status);
       }
       // We've loaded the page and know what its resources are.
-      
+
       res.end( JSON.stringify(proc.resources) );
       console.log('Resources found: ' + JSON.stringify(proc.resources));
       proc.ph.exit();
     });
-  } 
+  }
   catch (e){
     console.log(e);
     res.end( null );
   }
 };
-
-
-
