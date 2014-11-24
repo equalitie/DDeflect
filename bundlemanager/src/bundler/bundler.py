@@ -66,7 +66,6 @@ class BundleMaker(object):
             '',
             '.php'
         ]
-
         """
         Setup resource collection threads
         """
@@ -128,12 +127,11 @@ class BundleMaker(object):
             data=work_set,
             headers=headers
         )
-
         if not reaped_resources:
             logging.debug("No resources returned. Ending process")
             return None
         if not reaped_resources.ok:
-            logging.error("Resource requesting failed: %s", reaped_resources.text)
+            logging.debug("Resource requesting failed: %s", reaped_resources.text)
             return None
 
         logging.debug("Received reaping results %s", reaped_resources.text)
@@ -141,7 +139,7 @@ class BundleMaker(object):
         ext_resources = reaped_resources.json
         logging.debug("JSON-decoded resources are %s", str(ext_resources))
 
-        resources = self.fetchResources(ext_resources)
+        resources = self.fetchResources(ext_resources, host)
 
         logging.debug('Collected %s resources', len(resources))
 
@@ -185,9 +183,10 @@ class BundleMaker(object):
             if not url.endswith("/"):
                 return url + "/"
         else:
-            #TODO: Add error checking here
+            #TOD0: Add error checking here
             resourceDomain = urlparse(url).hostname
-            resourceDomain = resourceDomain + '/'
+            if resourceDomain[-1] != '/':
+                resourceDomain = resourceDomain + '/'
 
         return resourceDomain
 
@@ -247,6 +246,7 @@ class BundleMaker(object):
             resourcePage = requests.get(
                 item['url'],
                 timeout=8,
+                headers={"Host": item['host']},
                 verify=False
             )
 
@@ -271,7 +271,7 @@ class BundleMaker(object):
             self.resource_queue.task_done()
         logging.debug('%s thread exiting', thread_num)
 
-    def fetchResources(self, resources):
+    def fetchResources(self, resources, host):
         """
         Based on the list of resources provided go and retrieve the physical
         content for each of these pages. Provided to this function are the
@@ -284,6 +284,8 @@ class BundleMaker(object):
         #self.resource_queue = Queue( len(resources) )
         #self.resource_result_queue = Queue( len(resources) )
 
+        # TODO: refactor this section - it's a little
+        # incomprehensible.
         resource_set = []
 
         self.main_url = resources[0]['url']
@@ -293,6 +295,7 @@ class BundleMaker(object):
                 resource_set.append(str(r['url']))
 
                 self.resource_queue.put({
+                    'host': host,
                     'url':str(r['url']),
                     'position':position
                 })
@@ -360,22 +363,22 @@ class BundleMaker(object):
                     continue
 
                 r['content'] = self.buildDataURIs(
-                                                resources,
-                                                r['content'],
-                                                r['url'],
-                                                resources[0]['url']
-                                            )
+                    resources,
+                    r['content'],
+                    r['url'],
+                    resources[0]['url']
+                )
             else:
                 self.buildDataURIs(
-                                    resources,
-                                    r['content'],
-                                    r['url'],
-                                    r['url']
-                                )
+                    resources,
+                    r['content'],
+                    r['url'],
+                    r['url']
+                )
                 r['content'] = lxml.html.rewrite_links(
-                                    r['content'],
-                                    self.generate_link_from_datauri
-                                )
+                    r['content'],
+                    self.generate_link_from_datauri
+                )
 
         return resources[0]['content'].encode('utf8')
 
