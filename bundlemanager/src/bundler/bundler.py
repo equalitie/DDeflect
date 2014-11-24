@@ -183,10 +183,7 @@ class BundleMaker(object):
             if not url.endswith("/"):
                 return url + "/"
         else:
-            #TOD0: Add error checking here
-            resourceDomain = urlparse(url).hostname
-            if resourceDomain[-1] != '/':
-                resourceDomain = resourceDomain + '/'
+            resourceDomain = urlparse(url).hostname + '/'
 
         return resourceDomain
 
