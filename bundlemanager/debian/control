@@ -14,10 +14,9 @@ Depends:
          python-flask,
          python-yaml,
          python-redis,
+         python-lxml,
+         python-crypto,
          python-zmq,
-         python-ghost.py,
-	 xvfb,
-	 python-pyside,
          python-jinja2
 Description: Manages creation (via the Bundler service), storage and
  returning of bundle objects for the Distributed Deflect project.
