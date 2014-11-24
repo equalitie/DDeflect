@@ -131,7 +131,7 @@ class BundleMaker(object):
             logging.debug("No resources returned. Ending process")
             return None
         if not reaped_resources.ok:
-            logging.debug("Resource requesting failed: %s", reaped_resources.text)
+            logging.error("Resource requesting failed: %s", reaped_resources.text)
             return None
 
         logging.debug("Received reaping results %s", reaped_resources.text)
