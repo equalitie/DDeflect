@@ -333,8 +333,8 @@ class DebundlerServer(flask.Flask):
 
     def rootRoute(self, path):
         #TODO this may be causing issues with premature broken pipes
-        #if path == "favicon.ico":
-        #    flask.abort(501)
+        if path == "favicon.ico":
+            flask.abort(404)
 
         if path.startswith("_bundle"):
             logging.debug("Got a _bundle request at %s", path)
@@ -353,6 +353,16 @@ class DebundlerServer(flask.Flask):
 
             request_host = flask.request.headers.get('Host')
             logging.debug("Request is for %s", flask.request.url)
+
+            # HACK - Flask doesn't behave properly as an
+            # endpoint. There is a TODO - add header_filter to ATS to
+            # pass this properly. For now we hack around it because
+            # fuck computers.
+            via_header = flask.request.headers.get("Via")
+            if via_header.startswith("https"):
+                flask.request.url = flask.request.url.replace("http", "https", 1)
+
+            logging.debug("Request proto is %s", str(flask.request.headers))
 
             #TODO set cookies here
             #flask.request.cookies.get()
