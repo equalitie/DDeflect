@@ -106,7 +106,7 @@ class BundleMaker(object):
             #simple unicode object instead of a string breaks stuff.
             'Host': str(request.headers.get('host'))
         }
-        logging.debug('Getting remap rule for request')
+
         remapped_url = self.remapReqURL(remap_domain, request)
 
         if not remapped_url:
@@ -250,8 +250,19 @@ class BundleMaker(object):
             if resourcePage.status_code == requests.codes.ok:
                 content = ''
                 logging.debug('%s got content for url: %s', thread_num, url)
+                if resourcePage.content is None:
+                    resourcePage.text = ""
                 if self.isSearchableFile(url) or url == self.main_url:
-                    content = self.htmlparser.unescape( resourcePage.text )
+                    try:
+                        content = self.htmlparser.unescape( resourcePage.text)
+                    except TypeError as e:
+                        #ewww nested try-s :(
+                        try:
+                            logging.error("Failed to unescape HTML in url! %s", str(e))
+                            content = self.htmlparser.unescape( resourcePage.content)
+                        except TypeError as e2:
+                            logging.error("Failed to unescape HTML in URL when using content attribute. Giving up: %s", str(e2))
+
                 else:
                     content = base64.b64encode(resourcePage.content)
 
