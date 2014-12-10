@@ -95,7 +95,7 @@ CryptoJS.mode.CFB=function(){function g(c,b,e,a){var d=this._iv;d?(d=d.slice(0),
 			}
 			else {
 				// TODO say we failed
-				alert('Integrity check failed.')
+				alert('Integrity check failed! Deflect admins have been notified')
 			}
 		}
 
@@ -108,7 +108,6 @@ CryptoJS.mode.CFB=function(){function g(c,b,e,a){var d=this._iv;d?(d=d.slice(0),
 				// TODO pingback and say we failed to load
 				var returnedContent = this.responseText
 				var bundle_json = JSON.parse(returnedContent);
-				// Hugh, you also need to find a way to communicate the HMAC now.
 				decryptBundle(bundle_json["encrypted"], bundle_json["hmac"])
 			}
 			xhr.send()
