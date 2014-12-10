@@ -89,11 +89,11 @@ Reaper.loadPage = function( req, res ) {
 	// Initialize collection of resources the website is dependent on.
 	// Will fetch resources as part of the bundle.
 	// Visit the website, determine its HTML and the resources it depends on.
-  console.log(req);
+
 	portScanner.findAPortNotInUse(40000, 60000, 'localhost', function(err, freePort) {
 		phantom.create(function(ph) {
 			ph.createPage(function(page) {
-        var headers = {"Host": req.host};
+        var headers = {"Host": req.body.host};
         page.set("customHeaders", headers);
 				Reaper.retrieveResources(
 					req.body.url, res,  {
@@ -114,7 +114,7 @@ Reaper.retrieveResources = function(url, res, proc) {
 	console.log('Initializing resource collection for ' + url);
   try {
     proc.page.set('onResourceRequested', function(request, networkRequest) {
-       console.log('Resource event caught');
+
       if (!proc.pageLoadedCutoff) {
         console.log("resource: " + request.url);
         if ( request.url.match('^http') &&
