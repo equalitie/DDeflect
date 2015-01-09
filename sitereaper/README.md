@@ -5,7 +5,7 @@
 2. ```cd``` to the bundler directory
 3. Run ```apt-get install libzmq1 libzmq-dev```.
 4. Run ```npm install```
-5. Run ```node bundler```
+5. Run ```node reaper```
 
 ## Test and build a debian package with grunt
 0. ``npm install grunt-debian-package`` https://www.npmjs.org/package/grunt-debian-package
