@@ -21,14 +21,14 @@ import logging
 import logging.handlers
 #from datetime import datetime, time
 
-try: 
+try:
     from bundler import settings
-except IOError: 
+except IOError:
     # IO Error means that we can't load the default settings file.
-    if __name__ == "__main__": 
+    if __name__ == "__main__":
         # We'll reload the settings file in main
         pass
-    else: 
+    else:
         # We're being imported as a module, there is no hope of
         # recovery.
         raise
@@ -292,17 +292,17 @@ class DebundlerServer(flask.Flask):
         else:
             #Return 404
             return None
-        
+
         # Whitelist a few headers to pass on
         request_headers = {}
         for h in ["Cookie", "Referer", "X-Csrf-Token", "Content-Length"]:
             if h in flask.request.headers:
                 request_headers[h] = flask.request.headers[h]
-        
+
         request_headers['Host'] = request_host
 
         remapped_origin = self.bundleMaker.remapReqURL(remap_host, flask.request)
-        
+
         proxied_response = requests.post(
                 remapped_origin,
                 headers = request_headers,
@@ -311,7 +311,7 @@ class DebundlerServer(flask.Flask):
                 cookies = flask.request.cookies,
 
         )
-        
+
         return flask.Response(
                     response=proxied_response
                 )
@@ -359,8 +359,10 @@ class DebundlerServer(flask.Flask):
             # pass this properly. For now we hack around it because
             # fuck computers.
             via_header = flask.request.headers.get("Via")
-            if via_header.startswith("https"):
+            if via_header and via_header.startswith("https"):
                 flask.request.url = flask.request.url.replace("http", "https", 1)
+            else:
+                logging.info("Got a request for %s request_host with no Via header")
 
             logging.debug("Request proto is %s", str(flask.request.headers))
 
@@ -531,7 +533,7 @@ if __name__ == "__main__":
                         help = 'Verbose mode, not daemonized')
 
     args = parser.parse_args()
-    if "BUNDLEMANAGER_CONFIG" not in os.environ: 
+    if "BUNDLEMANAGER_CONFIG" not in os.environ:
         #Backwards compatability
         os.environ["BUNDLEMANAGER_CONFIG"] = args.config_path
 
