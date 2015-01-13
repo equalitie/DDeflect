@@ -1,6 +1,5 @@
 ---
 general:
-  bundler_path: http://127.0.0.1:{{ bundler_port }}/?url=
   url_salt: {{ bundlehash_salt }}
   port: 8000
   host: 127.0.0.1
@@ -9,7 +8,8 @@ general:
   pidfile: /var/run/bundlemanager/bundlemanager.pid
   uid_name: nobody
   gid_name: nogroup
-  comms_port: tcp://127.0.0.1:12345
+  comms_port: http://127.0.0.1:3000
+  wsgi_port: 8000
 
 v_edges:
 {% for vedge, attributes in vedges.iteritems() %}
@@ -17,10 +17,13 @@ v_edges:
     availability:
       start: {{attributes["availability"]["start"]}}
       end: {{attributes["availability"]["end"]}}
+    total_bandwidth: 100
 {% endfor %}
 
 remap:
 {% for site, attributes in remap.iteritems() %}
    {{site}}:
+     origin: {{attributes["origin"]}}
+   www.{{site}}:
      origin: {{attributes["origin"]}}
 {% endfor %}
