@@ -2,4 +2,8 @@
 .include remap.d/{{site}}.config
 {% endfor %}
 
+# For local caching proxy
+regex_map http://(.*)/  http://$1/      @action=allow @src_ip=127.0.0.1
+
+# Allow for V-edges to request bundles from us
 map http://{{ansible_nodename}}     http://localhost:{{bundlemanager_port}}
