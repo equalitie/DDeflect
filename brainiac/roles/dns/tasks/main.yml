@@ -6,7 +6,6 @@
   apt: pkg={{item}} state=installed
   with_items:
     - bind9
-  tags: dns
 
 - name: bind config
   template: src=named.conf.options.j2 dest=/etc/bind/named.conf.options
@@ -18,13 +17,10 @@
 - name: Per-site zone files
   template: src=zone.j2 dest=/tmp/{{ item.key }}.zone owner=root group=bind
   with_dict: remap
-  tags: dns
 
 - name: Central DNS zone files
   template: src=networkzone.j2 dest=/tmp/{{item}}.zone owner=root group=bind
   with_items: dnets
-  tags: dns
 
 - name: Master zone file configuration
   template: src=named.conf.local.j2 dest=/etc/bind/named.conf.local owner=root group=bind
-  tags: dns
