@@ -244,11 +244,16 @@ class DebundlerServer(flask.Flask):
     def genBundle(self, frequest, path, key, iv, hmac_key):
         request_host = frequest.headers.get('Host')
         logging.debug("Bundle request url is %s",  frequest.url)
-        bundler_result = self.bundleMaker.createBundle(frequest,
-                                                       key,
-                                                       iv,
-                                                       hmac_key
-                                                       )
+        try:
+            bundler_result = self.bundleMaker.createBundle(
+                frequest,
+                key,
+                iv,
+                hmac_key
+            )
+        except requests.ConnectionError as e:
+            logging.error("Failed to request resources from Reaper! %s", str(e))
+            flask.abort(503)
 
         if not bundler_result:
             logging.error("Failed to get bundle for %s", frequest.url)
