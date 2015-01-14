@@ -95,9 +95,6 @@ class BundleMaker(object):
         self.hmackey = hmackey
 
         resources = []
-        resourceDomain = self.getResourceDomain(request.url)
-
-        logging.debug("Retrieved resource domain as: %s", resourceDomain)
 
         #Pass through request headers directly like a proper proxy
         #TODO pass other headers here, don't just discard them
@@ -167,25 +164,6 @@ class BundleMaker(object):
             remap_domain,
             parsed_url.path,
             "?%s" % parsed_url.query if parsed_url.query else "")
-
-    def getResourceDomain(self, url):
-        """
-        Retrieve the domain of the URL/URI, for example:
-        https://www.equalit.ie will become
-        equalit.ie/
-        """
-        resourceDomain = None
-        if not url:
-            return None
-        elif 'http' not in url:
-            #TODO temporary hack because i dunno
-            #this is an issue to discuss with nosmo
-            if not url.endswith("/"):
-                return url + "/"
-        else:
-            resourceDomain = urlparse(url).hostname + '/'
-
-        return resourceDomain
 
     def signBundle(self,bundle):
         """
