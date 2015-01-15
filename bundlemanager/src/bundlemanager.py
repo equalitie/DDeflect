@@ -19,7 +19,6 @@ import signal
 import threading
 import logging
 import logging.handlers
-#from datetime import datetime, time
 
 try:
     from bundler import settings
@@ -124,13 +123,16 @@ class VedgeManager(object):
         and the total bandwidth available
         """
         # pop first element in sorted list, reset timestamp
-        return self.vedge_data.keys()[0]
         """
         if self.redis.llen("active_vedges") < self.vedge_threshold:
             self.refreshVedges()
         vedge = self.redis.srandmember("active_vedges")
         return vedge
         """
+
+        #For now, just return a random Vedge
+        return self.vedge_data.keys()[random.randint(0,len(self.vedge_data))]
+
 
 class DebundlerServer(flask.Flask):
 
