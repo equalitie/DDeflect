@@ -46,7 +46,7 @@ class BundleMaker(object):
     )
     reGetExtOnly = re.compile('\.\w+')
 
-    def __init__(self, remap_rules, reaper_address):
+    def __init__(self, remap_rules, reaper_address, http_proxy=None, https_proxy=None):
         """
         Only important thing to setup here is Ghost, which will drive the key
         aspect of bundler - getting the resource list
@@ -57,6 +57,7 @@ class BundleMaker(object):
         self.iv = None
         self.hmackey = None
         self.remap_rules = remap_rules
+        self.proxy = {"http": http_proxy, "https": https_proxy}
         self.resource_queue = Queue(maxsize=0)
         self.resource_result_queue = Queue(maxsize=0)
         self.main_url = None
@@ -82,12 +83,12 @@ class BundleMaker(object):
         Input: Request to bundle, encryption keys
         Output: Encrypted bundle, hmac signature
         """
-        logging.debug("Processing request for: %s", request.url)
+        logging.debug("Starting bundle creation for: %s", request.url)
 
         host = request.headers['host']
         remap_domain = self.remap_rules[host]['origin'] if host in self.remap_rules else None
         if not remap_domain:
-            logging.debug("No remap found for domain: %s", host)
+            logging.warning("No remap found for domain: %s", host)
             return None
 
         self.key = key
@@ -110,8 +111,6 @@ class BundleMaker(object):
             logging.error('No remap rule found for: %s', request.headers['host'])
             return None
 
-        logging.debug("Attempting to load remapped page: %s", remapped_url)
-
         work_set = json.dumps({
             "url": remapped_url,
             "host": host,
@@ -125,13 +124,11 @@ class BundleMaker(object):
             headers=headers
         )
         if not reaped_resources:
-            logging.debug("No resources returned. Ending process")
+            logging.warning("No resources returned. Ending process")
             return None
         if not reaped_resources.ok:
             logging.error("Resource requesting failed: %s", reaped_resources.text)
             return None
-
-        logging.debug("Received reaping results %s", reaped_resources.text)
 
         ext_resources = reaped_resources.json
         logging.debug("JSON-decoded resources are %s", str(ext_resources))
@@ -145,7 +142,7 @@ class BundleMaker(object):
         bundle = self.encryptBundle(parsed_content)
         logging.debug('Bundle encrypted')
         hmac_sig = self.signBundle(bundle)
-        logging.debug('Bundle signed - and now they know when in memory to look :(')
+        logging.debug('Bundle signed.')
         return {
             "bundle": bundle,
             "hmac_sig": hmac_sig
@@ -222,12 +219,13 @@ class BundleMaker(object):
                 item['url'],
                 timeout=8,
                 headers={"Host": item['host']},
-                verify=False
+                verify=False,
+                proxies=self.proxy
             )
 
             if resourcePage.status_code == requests.codes.ok:
                 content = ''
-                logging.debug('%s got content for url: %s', thread_num, url)
+
                 if resourcePage.content is None:
                     resourcePage.text = ""
                 if self.isSearchableFile(url) or url == self.main_url:
@@ -255,7 +253,6 @@ class BundleMaker(object):
                 logging.error('%s failed to get resource: %s', thread_num, url)
 
             self.resource_queue.task_done()
-        logging.debug('%s thread exiting', thread_num)
 
     def fetchResources(self, resources, host):
         """
@@ -287,9 +284,9 @@ class BundleMaker(object):
                 })
                 position += 1
 
-        logging.debug('Waiting for workers to complete')
+        logging.debug('Waiting for workers to complete for %s', self.main_url)
         self.resource_queue.join()
-        logging.debug('Resources retrieved')
+        logging.debug('Resources retrieved for %s', self.main_url)
         new_resources = list( self.resource_result_queue.queue )
         # Annoyingly order matters a great deal
         # because if A references B reference C, we have to bundle C then

@@ -147,7 +147,8 @@ class DebundlerServer(flask.Flask):
 
         self.bundles = collections.defaultdict(dict)
         self.remap_rules = settings.remap
-        self.bundleMaker = BundleMaker(self.remap_rules, settings.general["comms_port"])
+        self.bundleMaker = BundleMaker(self.remap_rules, settings.general["comms_port"],
+                                       settings.http_proxy, settings.https_proxy)
 
         self.salt = settings.general["url_salt"]
         self.refresh_period = settings.general["refresh_period"]
@@ -260,7 +261,6 @@ class DebundlerServer(flask.Flask):
         if not bundler_result:
             logging.error("Failed to get bundle for %s", frequest.url)
             flask.abort(503)
-        logging.debug("Bundle constructed and returned")
 
         #Not 1 thousand percent sure this is the same as what you
         # are currently saving so needs to be rechecked
@@ -359,7 +359,7 @@ class DebundlerServer(flask.Flask):
                 path = "/"
 
             request_host = flask.request.headers.get('Host')
-            logging.debug("Request is for %s", flask.request.url)
+            logging.debug("New request received - request is for %s", flask.request.url)
 
             # HACK - Flask doesn't behave properly as an
             # endpoint. There is a TODO - add header_filter to ATS to
@@ -370,8 +370,6 @@ class DebundlerServer(flask.Flask):
                 flask.request.url = flask.request.url.replace("http", "https", 1)
             else:
                 logging.info("Got a request for %s request_host with no Via header")
-
-            logging.debug("Request proto is %s", str(flask.request.headers))
 
             #TODO set cookies here
             #flask.request.cookies.get()
@@ -406,11 +404,12 @@ class DebundlerServer(flask.Flask):
                 hmac_key=unicode(hmac_key),
                 key=unicode(key),iv=unicode(iv),
                 v_edge=unicode(v_edge),
-                bundle_signature=bundlehash)
+                bundle_signature=bundlehash
+            )
 
             logging.debug("Returning template to user for signature %s", bundlehash)
             resp = flask.Response(render_result, status=200)
-            #response.set_cookie(
+
             return resp
 
 class bundleManagerDaemon():
