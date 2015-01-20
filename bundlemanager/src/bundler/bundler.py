@@ -105,7 +105,7 @@ class BundleMaker(object):
             'Host': str(request.headers.get('host'))
         }
 
-        remapped_url = self.remapReqURL(remap_domain, request)
+        remapped_url = BundleMaker.remapReqURL(remap_domain, request)
 
         if not remapped_url:
             logging.error('No remap rule found for: %s', request.headers['host'])
@@ -116,7 +116,8 @@ class BundleMaker(object):
             "host": host,
             "remapped_host": remap_domain
         })
-        logging.debug("Sending request to site reaper for domain: %s and page: %s", host, remapped_url)
+        logging.debug("Sending request to site reaper for domain: %s and page: %s",
+                      host, remapped_url)
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         reaped_resources = requests.post(
             self.reaper_address,
@@ -148,7 +149,8 @@ class BundleMaker(object):
             "hmac_sig": hmac_sig
         }
 
-    def remapReqURL(self, remap_domain, request):
+    @staticmethod
+    def remapReqURL(remap_domain, request):
         """
         Remap given url based on rules defined by
         conf file
@@ -162,7 +164,7 @@ class BundleMaker(object):
             parsed_url.path,
             "?%s" % parsed_url.query if parsed_url.query else "")
 
-    def signBundle(self,bundle):
+    def signBundle(self, bundle):
         """
         Sha256 sign the bundle and return the digest as signature
         This will be used by the physical debundler JS to authenticate
@@ -179,7 +181,7 @@ class BundleMaker(object):
         Encrypt the base64 encoded bundle using the generated key and IV
         provided by the calling application
         """
-        padded_content = self.encode(content)
+        padded_content = BundleMaker.encode(content)
         key = binascii.unhexlify(self.key)
         iv = binascii.unhexlify(self.iv)
 
@@ -192,7 +194,8 @@ class BundleMaker(object):
 
         return base64.b64encode( aes.encrypt(padded_content) )
 
-    def encode(self, text):
+    @staticmethod
+    def encode(text):
         '''
         Pad an input string according to PKCS#7
         '''
@@ -228,7 +231,7 @@ class BundleMaker(object):
 
                 if resourcePage.content is None:
                     resourcePage.text = ""
-                if self.isSearchableFile(url) or url == self.main_url:
+                if BundleMaker.isSearchableFile(url) or url == self.main_url:
                     try:
                         content = self.htmlparser.unescape( resourcePage.text)
                     except TypeError as e:
@@ -287,7 +290,7 @@ class BundleMaker(object):
         logging.debug('Waiting for workers to complete for %s', self.main_url)
         self.resource_queue.join()
         logging.debug('Resources retrieved for %s', self.main_url)
-        new_resources = list( self.resource_result_queue.queue )
+        new_resources = list(self.resource_result_queue.queue )
         # Annoyingly order matters a great deal
         # because if A references B reference C, we have to bundle C then
         # B then A otherwise A might end up with a bundle of B that doesn't
@@ -298,7 +301,8 @@ class BundleMaker(object):
 
         return new_resources
 
-    def isSearchableFile(self, url):
+    @staticmethod
+    def isSearchableFile(url):
         """
         This function is responsible for checking whether or not
         the given url can be considered to be a parsable file, such as,
@@ -315,8 +319,8 @@ class BundleMaker(object):
 	    if ext[-1] == '?':
 	        ext = ext[:-1];
 	    if (ext in mimetypes.types_map and BundleMaker.reMatchMime.search(
-                 mimetypes.types_map[ext])
-            ) or ext in [".php", ".html", ".css", ".json"]:
+                mimetypes.types_map[ext])
+        ) or ext in [".php", ".html", ".css", ".json"]:
 	        return True
         return False
 
@@ -338,11 +342,11 @@ class BundleMaker(object):
             if not r['content'] or r['content'] < 262144:
                 continue
             if r['url'] != self.main_url:
-                if not self.isSearchableFile(r['url']):
+                if not BundleMaker.isSearchableFile(r['url']):
                     continue
                 if not any(
-                    resource in r['content'] for resource in resource_list
-                    ):
+                        resource in r['content'] for resource in resource_list
+                ):
                     continue
 
                 r['content'] = self.buildDataURIs(
@@ -371,7 +375,8 @@ class BundleMaker(object):
                 continue
 
             filename = j['url'].split('/')[-1]
-            if not BundleMaker.reTestForFile.search(filename): continue
+            if not BundleMaker.reTestForFile.search(filename):
+                continue
 
             if filename not in content:
                 continue
@@ -422,7 +427,7 @@ class BundleMaker(object):
         mimetype = mimetypes.types_map[extension] if extension in mimetypes.types_map else 'application/octet-stream'
 
         dataURI = 'data:' + mimetype + ';base64,'
-        if self.isSearchableFile(str(extension)):
+        if BundleMaker.isSearchableFile(str(extension)):
             dataURI =  dataURI + base64.b64encode(content.encode('utf8'))
         else:
             dataURI = dataURI + content
