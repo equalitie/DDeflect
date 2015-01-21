@@ -24,6 +24,7 @@ import HTMLParser
 Third party modules
 """
 import requests
+import chardet
 from Crypto.Cipher import AES
 """
 need to compile all regexes
@@ -229,20 +230,17 @@ class BundleMaker(object):
             if resourcePage.status_code == requests.codes.ok:
                 content = ''
 
-                if resourcePage.content is None:
-                    resourcePage.text = ""
+                if not resourcePage.content:
+                    resourcePage.content = ""
                 if BundleMaker.isSearchableFile(url) or url == self.main_url:
-                    try:
-                        content = self.htmlparser.unescape( resourcePage.text)
-                    except TypeError as e:
-                        #ewww nested try-s :(
-                        try:
-                            logging.error("Failed to unescape HTML in url! %s", str(e))
-                            content = self.htmlparser.unescape( resourcePage.content)
-                        except TypeError as e2:
-                            logging.error("Failed to unescape HTML in URL when using content attribute. Giving up: %s", str(e2))
+                    encoding_guess = chardet.detect(resourcePage.content)
+                    #TODO log uncertain guesses
+                    content = self.htmlparser.unescape(
+                        resourcePage.content.decode(encoding_guess["encoding"])
+                    )
 
                 else:
+                    #TODO do we need an encoding guess here?
                     content = base64.b64encode(resourcePage.content)
 
                 self.resource_result_queue.put(
