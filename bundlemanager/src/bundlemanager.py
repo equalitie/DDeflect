@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import flask
-import jinja2
 import requests
 import redis
-import yaml
 
 import argparse
 import json
@@ -18,6 +16,7 @@ import grp
 import signal
 import threading
 import logging
+import random
 import logging.handlers
 
 try:
@@ -131,7 +130,7 @@ class VedgeManager(object):
         """
 
         #For now, just return a random Vedge
-        return self.vedge_data.keys()[random.randint(0,len(self.vedge_data))]
+        return self.vedge_data.keys()[random.randint(0,len(self.vedge_data.keys())-1)]
 
 
 class DebundlerServer(flask.Flask):
@@ -147,7 +146,12 @@ class DebundlerServer(flask.Flask):
 
         self.bundles = collections.defaultdict(dict)
         self.remap_rules = settings.remap
-        self.bundleMaker = BundleMaker(self.remap_rules, settings.general["comms_port"])
+        self.bundleMaker = BundleMaker(
+            self.remap_rules,
+            settings.general["comms_port"],
+            settings.general["http_proxy"],
+            settings.general["https_proxy"]
+        )
 
         self.salt = settings.general["url_salt"]
         self.refresh_period = settings.general["refresh_period"]
@@ -156,11 +160,11 @@ class DebundlerServer(flask.Flask):
 
         #wildcard routing
         self.route('/', defaults={'path': ''})(self.rootRoute)
-        self.route('/',  methods=['POST'])(self.postRoute)
+        self.route('/', methods=['POST'])(self.postRoute)
         self.route("/_bundle/")(self.serveBundle)
         #more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
-        self.route('/<path:path>',  methods=['POST'])(self.postRoute)
+        self.route('/<path:path>', methods=['POST'])(self.postRoute)
 
     def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
@@ -230,7 +234,7 @@ class DebundlerServer(flask.Flask):
         """ The most "secure" mechanism """
 
         #Mash together all headers
-        cookie_string = mash_dict(request.headers)
+        header_string = mash_dict(request.headers)
 
         return hashlib.sha512(
             self.salt + bundle_content["bundle"] + request.user_agent.string + \
@@ -245,7 +249,7 @@ class DebundlerServer(flask.Flask):
 
     def genBundle(self, frequest, path, key, iv, hmac_key):
         request_host = frequest.headers.get('Host')
-        logging.debug("Bundle request url is %s",  frequest.url)
+        logging.debug("Bundle request url is %s", frequest.url)
         try:
             bundler_result = self.bundleMaker.createBundle(
                 frequest,
@@ -260,16 +264,15 @@ class DebundlerServer(flask.Flask):
         if not bundler_result:
             logging.error("Failed to get bundle for %s", frequest.url)
             flask.abort(503)
-        logging.debug("Bundle constructed and returned")
 
         #Not 1 thousand percent sure this is the same as what you
         # are currently saving so needs to be rechecked
         logging.info("hmac_sig: %s", bundler_result['hmac_sig'])
         rendered_bundle = flask.render_template(
-                            "bundle.json",
-                            encrypted = bundler_result['bundle'],
-                            hmac = bundler_result['hmac_sig']
-                            )
+            "bundle.json",
+            encrypted = bundler_result['bundle'],
+            hmac = bundler_result['hmac_sig']
+        )
         bundle_content = rendered_bundle
         bundle_signature = self.genBundleHash(frequest, rendered_bundle)
         self.redis.sadd("bundles", bundle_signature)
@@ -308,20 +311,21 @@ class DebundlerServer(flask.Flask):
 
         request_headers['Host'] = request_host
 
-        remapped_origin = self.bundleMaker.remapReqURL(remap_host, flask.request)
+        remapped_origin = self.bundleMaker.remapReqURL(
+            remap_host, flask.request
+        )
 
         proxied_response = requests.post(
-                remapped_origin,
-                headers = request_headers,
-                files = flask.request.files,
-                data = flask.request.form,
-                cookies = flask.request.cookies,
-
+            remapped_origin,
+            headers = request_headers,
+            files = flask.request.files,
+            data = flask.request.form,
+            cookies = flask.request.cookies,
         )
 
         return flask.Response(
-                    response=proxied_response
-                )
+            response=proxied_response
+        )
     def serveBundle(self, bundlehash):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
         if not self.redis.sismember("bundles", bundlehash):
@@ -359,7 +363,7 @@ class DebundlerServer(flask.Flask):
                 path = "/"
 
             request_host = flask.request.headers.get('Host')
-            logging.debug("Request is for %s", flask.request.url)
+            logging.debug("New request received - request is for %s", flask.request.url)
 
             # HACK - Flask doesn't behave properly as an
             # endpoint. There is a TODO - add header_filter to ATS to
@@ -369,9 +373,7 @@ class DebundlerServer(flask.Flask):
             if via_header and via_header.startswith("https"):
                 flask.request.url = flask.request.url.replace("http", "https", 1)
             else:
-                logging.info("Got a request for %s request_host with no Via header")
-
-            logging.debug("Request proto is %s", str(flask.request.headers))
+                logging.info("Got a request for %s request_host with no Via header", request_host)
 
             #TODO set cookies here
             #flask.request.cookies.get()
@@ -404,18 +406,21 @@ class DebundlerServer(flask.Flask):
             render_result = flask.render_template(
                 "debundler_template.html.j2",
                 hmac_key=unicode(hmac_key),
-                key=unicode(key),iv=unicode(iv),
+                key=unicode(key),
+                iv=unicode(iv),
                 v_edge=unicode(v_edge),
-                bundle_signature=bundlehash)
+                bundle_signature=bundlehash
+            )
 
             logging.debug("Returning template to user for signature %s", bundlehash)
             resp = flask.Response(render_result, status=200)
-            #response.set_cookie(
+
             return resp
 
 class bundleManagerDaemon():
     def __init__(self, stdin='/dev/stdin',
-                stdout='/dev/stdout', stderr='/dev/stderr'):
+                 stdout='/dev/stdout',
+                 stderr='/dev/stderr'):
         self.stdin = stdin
         self.stdout = stdout
         self.stderr = stderr
@@ -513,6 +518,7 @@ def dropPrivileges(uid_name='nobody', gid_name='no_group'):
         os.setuid(running_uid)
     except OSError, e:
         logging.error('Could not set effective group id: %s', e)
+    #TODO what is old_umask supposed to be for?
     old_umask = os.umask(077)
 
 def createHandler(daemon):
@@ -532,12 +538,12 @@ def createHandler(daemon):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description = 'Manage DDeflect bundle serving and retreival.')
-    parser.add_argument('-c', dest = 'config_path', action = 'store',
-                        default = '/etc/bundlemanager.yaml',
-                        help = 'Path to config file.')
-    parser.add_argument('-v', '--verbose', dest = 'verbose', action = 'store_true',
-                        help = 'Verbose mode, not daemonized')
+    parser = argparse.ArgumentParser(description='Manage DDeflect bundle serving and retreival.')
+    parser.add_argument('-c', dest='config_path', action ='store',
+                        default='/etc/bundlemanager.yaml',
+                        help='Path to config file.')
+    parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
+                        help='Verbose mode, not daemonized')
 
     args = parser.parse_args()
     if "BUNDLEMANAGER_CONFIG" not in os.environ:

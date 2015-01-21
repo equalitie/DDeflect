@@ -10,6 +10,8 @@ general:
   uid_name: nobody
   gid_name: nogroup
   wsgi_port: 8200
+  http_proxy: http://localhost:80
+  https_proxy: https://localhost:443
   comms_port: "http://127.0.0.1:12345"
 
 v_edges:
@@ -20,4 +22,4 @@ v_edges:
     total_bandwidth: 100
 remap:
   "site.example.ie":
-    origin: "www.site.example.ie" 
+    origin: "www.site.example.ie"
