@@ -12,9 +12,6 @@
   with_items:
     - trafficserver
 
-- name: enable ATS init script
-  file: src=trafficserver.default dest=/etc/default/trafficserver
-
 - name: Make trafficserver SSH directory
   file: path={{trafserv_home}}/.ssh state=directory owner=trafficserver group=trafficserver
 
@@ -24,11 +21,16 @@
                   path='{{trafserv_home}}/.ssh/authorized_keys'
                   manage_dir=no
 
+- name: enable ATS init script
+  file: src=trafficserver.default dest=/etc/default/trafficserver
+
 - name: set up ATS service
   service: name=trafficserver state=started enabled=yes
 
 - name: chown ATS directory
   file: path=/etc/trafficserver owner={{ trafficserver_user }} group={{ trafficserver_group }}
+
+- debug: network is {{network}}
 
 - include: config.yml
   when: not vedge
