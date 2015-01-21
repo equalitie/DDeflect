@@ -1,7 +1,7 @@
 ---
 
 - name: cache config
-  template: src=cache.config.j2 dest=/etc/trafficserver/cache.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
+  template: src=cache.config.tedge.j2 dest=/etc/trafficserver/cache.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
 
 - name: records config
   template: src=records.6.tedge.j2 dest=/etc/trafficserver/records.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
