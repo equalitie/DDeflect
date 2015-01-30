@@ -10,6 +10,22 @@ Nodes require python-apt.
 
 Runs under Ansible 1.6 or later.
 
+DIY
+--------
+
+* Install ansible and redis-server and start the Redis server running
+ locally.
+
+* Configure hosts.yml to include your T-edges, V-edges and optionally
+a controller. By default "distributed.deflect.ca" is the T-edge
+nodegroup in this file.
+
+* Configure an origin via *clients.yml*
+
+* Configure your controlled or external voluntary edges via edges.yml.
+
+* Run ansible-playbook site.yml
+
 Configuration
 --------
 *clients.yml*
