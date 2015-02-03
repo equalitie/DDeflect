@@ -1,9 +1,10 @@
 vedges:
   {
-  "nosmo.me":
+  "nosmo.me": {
     "port": 80,
     "availability": {
       "start": ""
       "end": ""
     }
   }
+}
