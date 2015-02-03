@@ -3,13 +3,16 @@
 trafserv_id: 99
 trafserv_gid: 99
 
-trafficserver_user: trafserv
-trafficserver_group: trafserv
+trafficserver_user: trafficserver
+trafficserver_group: trafficserver
+
+sensitive_files: /some/directory
 
 default_ssl_key: deflect.ca.key
 default_ssl_cert: deflect.ca.crt
 default_ssl_ca: deflect.ca.CA.crt
 
+ssh_keys: myuser
 
 trafserv_home: /var/run/trafficserver/
 bundlehash_salt: feise4iephohng4ahteequu3paKoaQuaeviashim
