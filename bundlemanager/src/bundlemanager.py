@@ -19,6 +19,9 @@ import logging
 import random
 import logging.handlers
 
+# Stop requests from spamming our logs
+logging.getLogger("requests").setLevel(logging.WARNING)
+
 try:
     from bundler import settings
 except IOError:
