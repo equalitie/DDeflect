@@ -8,28 +8,39 @@
   vars:
     locale: en_US.UTF-8
     timezone: UTC
+    network: ""
+    remap: {}
   roles:
     - common
 
 - hosts: distributed.deflect.ca
   user: root
-  vars:
-    network: distributed.deflect.ca
-    originstring: distributed.deflect.ca
   roles:
-    - trafficserver
-    - edgecommon
-    - bundlemanager
-    #- botnetdbp
+    - {role: trafficserver, tags: ats}
+    - {role: edgecommon, tags: edgecommon}
+    - {role: bundlemanager, tags: bundlemanager}
   vars_files:
     - deflect.yml
     - clients.yml
     - edges.yml
+  vars:
+    network: distributed.deflect.ca
+    originstring: distributed.deflect.ca
+    vedge: False
 
 - hosts: controller
   sudo: True
   roles:
-    - dns
+    - {role: dns, tags: dns}
   vars_files:
     - deflect.yml
     - clients.yml
+
+- hosts: vedges
+  user: root
+  roles:
+    - {role: edgecommon, tags: [vedge, edgecommon]}
+    - {role: trafficserver, tags: [vedge, ats], vedge: True}
+  vars_files:
+    - deflect.yml
+    - edges.yml
