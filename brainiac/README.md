@@ -22,6 +22,8 @@ nodegroup in this file.
 
 * Configure an origin via *clients.yml*
 
+* Create a general SSH keypair for your ATS installs and store it somewhere. Change the `sensitive_files` variable in *deflect.yml* to reflect this location.
+
 * Configure your controlled or external voluntary edges via edges.yml.
 
 * Run ansible-playbook site.yml
