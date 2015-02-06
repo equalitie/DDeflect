@@ -151,9 +151,7 @@ class DebundlerServer(flask.Flask):
         self.remap_rules = settings.remap
         self.bundleMaker = BundleMaker(
             self.remap_rules,
-            settings.general["bundler_location"],
-            settings.general["http_proxy"],
-            settings.general["https_proxy"]
+            settings.general["bundler_location"]
         )
 
         self.salt = settings.general["url_salt"]
