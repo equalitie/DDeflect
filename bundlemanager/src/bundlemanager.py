@@ -159,7 +159,10 @@ class DebundlerServer(flask.Flask):
         self.salt = settings.general["url_salt"]
         self.refresh_period = settings.general["refresh_period"]
 
-        self.redis = redis.Redis()
+        redis_host = "localhost"
+        if "redis_host" in settings.general:
+            redis_host = settings.general["redis_host"]
+        self.redis = redis.Redis(host=redis_host)
 
         #wildcard routing
         self.route('/', defaults={'path': ''})(self.rootRoute)
