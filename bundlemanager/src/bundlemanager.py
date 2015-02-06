@@ -151,7 +151,7 @@ class DebundlerServer(flask.Flask):
         self.remap_rules = settings.remap
         self.bundleMaker = BundleMaker(
             self.remap_rules,
-            settings.general["comms_port"],
+            settings.general["bundler_location"],
             settings.general["http_proxy"],
             settings.general["https_proxy"]
         )
@@ -256,6 +256,7 @@ class DebundlerServer(flask.Flask):
     def genBundle(self, frequest, path, key, iv, hmac_key):
         request_host = frequest.headers.get('Host')
         logging.debug("Bundle request url is %s", frequest.url)
+
         try:
             bundler_result = self.bundleMaker.createBundle(
                 frequest,
