@@ -16,8 +16,8 @@
 - hosts: distributed.deflect.ca
   user: root
   roles:
-    - {role: trafficserver, tags: ats}
     - {role: edgecommon, tags: edgecommon}
+    - {role: trafficserver, tags: ats}
     - {role: bundlemanager, tags: bundlemanager}
   vars_files:
     - deflect.yml

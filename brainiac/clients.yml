@@ -1,12 +1,13 @@
 dnets:
-  - staging.deflect.ca
+  - distributed.deflect.ca
 
 remap: {
     "mysite.com": {
       "disable_logging": True,
-      "network": "staging.deflect.ca",
+      "network": "distributed.deflect.ca",
       "hidden": "uas98u9ajaja",
       "https": True,
+      "live": True,
       "origin": "127.0.0.2",
       "ssl_ca": "",
       "ssl_cert": "",
@@ -18,9 +19,10 @@ remap: {
     },
     "myothersite.com": {
       "disable_logging": False,
-      "network": "staging.deflect.ca",
+      "network": "distributed.deflect.ca",
       "hidden": "kauih98u9ajaja",
       "ssl_ca": "",
+      "live": True,
       "ssl_cert": "",
       "ssl_key": "",
       "https": False,

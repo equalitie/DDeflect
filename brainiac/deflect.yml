@@ -1,12 +1,9 @@
 ---
-# Deprecated:
-trafserv_id: 99
-trafserv_gid: 99
 
 trafficserver_user: trafficserver
 trafficserver_group: trafficserver
 
-sensitive_files: /some/directory
+sensitive_files: sensitive_files/
 
 default_ssl_key: deflect.ca.key
 default_ssl_cert: deflect.ca.crt
