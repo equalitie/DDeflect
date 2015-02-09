@@ -1,6 +1,6 @@
 vedges:
   {
-  "nosmo.me": {
+  "vedge.local": {
     "port": 80,
     "availability": {
       "start": '',

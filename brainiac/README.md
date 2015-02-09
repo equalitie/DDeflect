@@ -8,13 +8,19 @@ Requirements
 
 Nodes require python-apt.
 
-Runs under Ansible 1.6 or later.
+Runs under Ansible 1.6 or later. 
+
+Requires the following packages:
+* ```redis-server```
+* ```python-redis```
+* ```sshpass```
+
+Requires Redis to be running locally.
 
 DIY
 --------
 
 Files that need to be present that aren't in the repo:
-* A directory for sensitive files as indicated by deflect.yml as `sensitive_files`
 * An SSH key named $user.pub for any users listed in *deflect.yml*, stored in the `sensitive_files` directory
 * An SSH key for statistics collecting named `trafficserver_id_rsa.pub`, stored in the `sensitive_files` directory
 * A generic SSL certificate, chain and key used as a fallback for sites with no SSL cert, stored in `roles/trafficserver/files/`, with filename specified in *deflect.yml*.
@@ -28,9 +34,9 @@ nodegroup in this file.
 
 * Configure an origin via *clients.yml*
 
-* Create a general SSH keypair for your ATS installs and store it somewhere. Change the `sensitive_files` variable in *deflect.yml* to reflect this location.
+* Create a general SSH keypair for your ATS installs and store it somewhere. Change the `sensitive_files` variable in *deflect.yml* to reflect this location. This can be the same as ```trafficserver_id_rsa.pub``` if needs be. 
 
-* Configure your controlled or external voluntary edges via edges.yml.
+* Configure any voluntary edges via edges.yml.
 
 * Run `ansible-playbook site.yml`
 

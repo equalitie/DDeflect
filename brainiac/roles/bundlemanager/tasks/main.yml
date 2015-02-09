@@ -1,13 +1,13 @@
 ---
 
+- name: Set up bundlemanager tmpdir
+  file: state=directory path=/var/run/bundlemanager/ owner=nobody group=nogroup
+
 - name: Install bundlemanager packages
   apt: pkg={{item}} state=installed
   with_items:
     - bundlemanager
     - redis-server
-
-- name: Set up bundlemanager tmpdir
-  file: state=directory path=/var/run/bundlemanager/ owner=nobody group=nogroup
 
 - name: Ensure redis is running and enabled
   service: name=redis-server state=running enabled=yes
