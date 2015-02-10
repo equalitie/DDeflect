@@ -34,7 +34,7 @@ except IOError:
         # recovery.
         raise
 
-from bundler import BundleMaker
+from bundler import BundleMaker, PASS_HEADERS
 
 
 def mash_dict(input_dict):
@@ -283,12 +283,13 @@ class DebundlerServer(flask.Flask):
 
         # Whitelist a few headers to pass on
         request_headers = {}
-        for h in ["Cookie", "Referer", "X-Csrf-Token", "Content-Length"]:
+        for h in PASS_HEADERS:
             if h in flask.request.headers:
                 request_headers[h] = flask.request.headers[h]
 
         request_headers['Host'] = request_host
 
+        # TODO this doesn't exist
         remapped_origin = self.bundleMaker.remapReqURL(
             remap_host, flask.request
         )
@@ -361,11 +362,6 @@ class DebundlerServer(flask.Flask):
             #TODO set cookies here
             #flask.request.cookies.get()
 
-            # REALLY BAD IDEA FIX ME THIS MAKES REDIS POINTLESS
-            # DERPDERP: Replacement idea - remove the bundle content
-            # from the hashing process. Bundles expire anyway. We
-            # still guarantee content freshness through expiry, we
-            # don't need to pull this bullshit of iterating.
             bundlehash = None
             requested_hash = self.genBundleHash(flask.request)
 
