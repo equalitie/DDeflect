@@ -76,7 +76,7 @@ class BundleMaker(object):
             return None
 
         logging.debug('Bundle returned')
-        bundle = self.encryptBundle(bundled_page.text)
+        bundle = self.encryptBundle(bundled_page.content)
         logging.debug('Bundle encrypted')
         hmac_sig = self.signBundle(bundle)
         logging.debug('Bundle signed.')
