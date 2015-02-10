@@ -36,11 +36,13 @@ except IOError:
 
 from bundler import BundleMaker
 
+
 def mash_dict(input_dict):
-    #Mash together keys and values of a dict
+    # Mash together keys and values of a dict
     output_string = "".join([ i for i in input_dict.keys() ])
     output_string += "".join([ str(i) for i in input_dict.values() ])
     return output_string
+
 
 class DebundlerMaker(object):
 
@@ -60,7 +62,9 @@ class DebundlerMaker(object):
         iv_bytes = os.urandom(16)
         hmac_key_bytes = os.urandom(16)
         if self.key and self.iv and self.hmac_key:
-            logging.info("Rotating keys. Old key was %s, old hmac key was %s and old IV was %s", self.key, self.iv.encode("hex"), self.hmac_key)
+            logging.info(("Rotating keys. Old key was %s, "
+                          "old hmac key was %s and old IV was %s"),
+                         self.key, self.iv.encode("hex"), self.hmac_key)
 
         self.hmac_key = hmac_key_bytes.encode('hex')
         self.key = key_bytes.encode("hex")
@@ -151,9 +155,7 @@ class DebundlerServer(flask.Flask):
         self.remap_rules = settings.remap
         self.bundleMaker = BundleMaker(
             self.remap_rules,
-            settings.general["comms_port"],
-            settings.general["http_proxy"],
-            settings.general["https_proxy"]
+            settings.general["bundler_location"]
         )
 
         self.salt = settings.general["url_salt"]
@@ -164,11 +166,11 @@ class DebundlerServer(flask.Flask):
             redis_host = settings.general["redis_host"]
         self.redis = redis.Redis(host=redis_host)
 
-        #wildcard routing
+        # wildcard routing
         self.route('/', defaults={'path': ''})(self.rootRoute)
         self.route('/', methods=['POST'])(self.postRoute)
         self.route("/_bundle/")(self.serveBundle)
-        #more wildcard routing
+        # more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
         self.route('/<path:path>', methods=['POST'])(self.postRoute)
 
@@ -204,7 +206,7 @@ class DebundlerServer(flask.Flask):
 
     def _bundleSigContentUserAgentIPCookies(self, request, bundle_content):
 
-        #Mash together all cookies
+        # Mash together all cookies
         cookie_string = mash_dict(request.cookies)
 
         return hashlib.sha512(
@@ -221,7 +223,7 @@ class DebundlerServer(flask.Flask):
 
     def _bundleSigContentUserAgentCookies(self, request, bundle_content):
 
-        #Mash together all headers
+        # Mash together all headers
         cookie_string = mash_dict(request.headers)
 
         return hashlib.sha512(
@@ -239,7 +241,7 @@ class DebundlerServer(flask.Flask):
     def _bundleSigContentUserAgentIPHeaders(self, request, bundle_content):
         """ The most "secure" mechanism """
 
-        #Mash together all headers
+        # Mash together all headers
         header_string = mash_dict(request.headers)
 
         return hashlib.sha512(
@@ -256,6 +258,7 @@ class DebundlerServer(flask.Flask):
     def genBundle(self, frequest, path, key, iv, hmac_key):
         request_host = frequest.headers.get('Host')
         logging.debug("Bundle request url is %s", frequest.url)
+
         try:
             bundler_result = self.bundleMaker.createBundle(
                 frequest,
@@ -276,8 +279,8 @@ class DebundlerServer(flask.Flask):
         logging.info("hmac_sig: %s", bundler_result['hmac_sig'])
         rendered_bundle = flask.render_template(
             "bundle.json",
-            encrypted = bundler_result['bundle'],
-            hmac = bundler_result['hmac_sig']
+            encrypted=bundler_result['bundle'],
+            hmac=bundler_result['hmac_sig']
         )
         bundle_content = rendered_bundle
         bundle_signature = self.genBundleHash(frequest, rendered_bundle)
@@ -323,20 +326,22 @@ class DebundlerServer(flask.Flask):
 
         proxied_response = requests.post(
             remapped_origin,
-            headers = request_headers,
-            files = flask.request.files,
-            data = flask.request.form,
-            cookies = flask.request.cookies,
+            headers=request_headers,
+            files=flask.request.files,
+            data=flask.request.form,
+            cookies=flask.request.cookies,
         )
 
         return flask.Response(
             response=proxied_response
         )
+
     def serveBundle(self, bundlehash):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
         if not self.redis.sismember("bundles", bundlehash):
-             logging.error("Got request for bundle %s but it is not in the bundles list", bundlehash)
-             flask.abort(404)
+            logging.error("Got request for bundle %s but it is not in the bundles list",
+                           bundlehash)
+            flask.abort(404)
         bundle_get = json.loads(self.redis.get(bundlehash))
         if "bundle" not in bundle_get:
             logging.error("Failed to get a valid bundle from bundle key %s", bundlehash)
@@ -384,13 +389,16 @@ class DebundlerServer(flask.Flask):
             #TODO set cookies here
             #flask.request.cookies.get()
 
-            #REALLY BAD IDEA FIX ME THIS MAKES REDIS POINTLESS DERPDERP
+            # REALLY BAD IDEA FIX ME THIS MAKES REDIS POINTLESS
+            # DERPDERP: Replacement idea - remove the bundle content
+            # from the hashing process. Bundles expire anyway. We
+            # still guarantee content freshness through expiry, we
+            # don't need to pull this bullshit of iterating.
             bundlehash = None
             for storedbundlehash in self.redis.smembers("bundles"):
                 if self.redis.exists(storedbundlehash):
                     redis_data = json.loads(self.redis.get(storedbundlehash))
 
-                    #TODO this needs testing
                     if self.checkBundleSig(flask.request, redis_data):
                         #if redis_data["host"] == request_host and redis_data["path"] == path:
                         logging.debug("Bundle %s matches current request", storedbundlehash)
@@ -451,7 +459,8 @@ class bundleManagerDaemon():
             if pid > 0:
                 sys.exit(0)
         except OSError, e:
-            logging.error("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
+            logging.error("fork #1 failed: %d (%s)\n" % (e.errno,
+                                                         e.strerror))
             sys.exit(1)
         try:
             pid = os.fork()
@@ -459,7 +468,7 @@ class bundleManagerDaemon():
                 sys.exit(0)
         except OSError, e:
             sys.stderr.write("fork #2 failed: %d (%s)\n" % (e.errno,
-            e.strerror))
+                                                            e.strerror))
             sys.exit(1)
         pid = str(os.getpid())
 
@@ -545,7 +554,7 @@ def createHandler(daemon):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Manage DDeflect bundle serving and retreival.')
-    parser.add_argument('-c', dest='config_path', action ='store',
+    parser.add_argument('-c', dest='config_path', action='store',
                         default='/etc/bundlemanager.yaml',
                         help='Path to config file.')
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',

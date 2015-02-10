@@ -12,7 +12,7 @@ general:
   wsgi_port: 8200
   http_proxy: http://localhost:80
   https_proxy: https://localhost:443
-  comms_port: "http://127.0.0.1:12345"
+  bundler_location: http://127.0.0.1:9008
 
 v_edges:
   "http://127.0.0.1:8000":
@@ -23,3 +23,5 @@ v_edges:
 remap:
   "site.example.ie":
     origin: "www.site.example.ie"
+  "equalit.ie":
+    origin: "fulltimeinter.net"
