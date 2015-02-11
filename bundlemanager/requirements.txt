@@ -2,9 +2,6 @@ flask
 pycrypto
 requests
 nose
-pyzmq
 redis
 pyyaml
 jinja2
-lxml
-chardet

@@ -19,6 +19,8 @@
     - ntp
     - ca-certificates
 
+- file: src=tmux.conf dest=/root/.tmux.conf
+
 - name: Ensure ntpd is running and enabled
   service: name=ntp state=running enabled=yes
 
