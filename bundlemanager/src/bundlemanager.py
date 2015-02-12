@@ -17,6 +17,7 @@ import signal
 import threading
 import logging
 import random
+import urlparse
 import logging.handlers
 
 # Stop requests from spamming our logs
@@ -137,7 +138,11 @@ class VedgeManager(object):
         """
 
         #For now, just return a random Vedge
-        return self.vedge_data.keys()[random.randint(0,len(self.vedge_data.keys())-1)]
+        chosen_vedge = self.vedge_data.keys()[random.randint(0,len(self.vedge_data.keys())-1)]
+        prefix = self.vedge_data[chosen_vedge].get("prefix", "")
+        if prefix and not prefix.startswith("/"):
+            chosen_vedge = chosen_vedge + "/" + prefix
+        return chosen_vedge
 
 
 class DebundlerServer(flask.Flask):

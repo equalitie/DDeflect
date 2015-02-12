@@ -20,8 +20,9 @@ v_edges:
       start: ""
       end: ""
     total_bandwidth: 100
+    prefix: ddeflect
 remap:
-  "site.example.ie":
-    origin: "www.site.example.ie"
+  "nosmo.me":
+    origin: "fulltimeinter.net"
   "equalit.ie":
     origin: "fulltimeinter.net"
