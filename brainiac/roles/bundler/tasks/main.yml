@@ -1,0 +1,12 @@
+---
+- name: Install bundler packages
+  apt: pkg={{item}} state=installed
+  with_items:
+    - node
+    - git
+
+- name: Check out latest stable bundler
+  git: repo=https://github.com/equalitie/bundler dest=/opt/bundler update=yes #version=stable
+
+- name: Fetch npm dependencies
+  npm: path=/opt/bundler

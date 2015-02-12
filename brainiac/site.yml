@@ -19,6 +19,7 @@
     - {role: edgecommon, tags: edgecommon}
     - {role: trafficserver, tags: ats}
     - {role: bundlemanager, tags: bundlemanager}
+    - {role: bundler, tags: bundler}
   vars_files:
     - deflect.yml
     - clients.yml
