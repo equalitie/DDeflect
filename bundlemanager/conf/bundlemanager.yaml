@@ -10,8 +10,8 @@ general:
   uid_name: nobody
   gid_name: nogroup
   wsgi_port: 8200
-  http_proxy: http://localhost:80
-  https_proxy: https://localhost:443
+  http_proxy: http://127.0.0.1:80
+  https_proxy: https://127.0.0.1:443
   bundler_location: http://127.0.0.1:9008
 
 v_edges:
