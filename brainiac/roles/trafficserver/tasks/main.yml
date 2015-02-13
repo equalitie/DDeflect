@@ -30,8 +30,6 @@
 - name: chown ATS directory
   file: path=/etc/trafficserver owner={{ trafficserver_user }} group={{ trafficserver_group }}
 
-- debug: network is {{network}}
-
 - include: config.yml
   when: not vedge
 
