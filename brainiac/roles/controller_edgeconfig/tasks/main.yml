@@ -1,0 +1,9 @@
+---
+
+- file: dest=/etc/ddeflect/ state=directory
+
+- name: Create full list of t-edges
+  template: src=tedges.yml.j2 dest=/etc/ddeflect/tedges.yml
+
+- name: Create full list of v-edges
+  template: src=vedges.yml.j2 dest=/etc/ddeflect/vedges.yml

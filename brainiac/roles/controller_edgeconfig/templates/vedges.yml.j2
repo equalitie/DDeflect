@@ -1,0 +1,9 @@
+---
+{% for vedge, vattrs in vedges | dictsort %}
+- {{ vedge }}:
+    port: {{vattrs["port"]}}
+    availability:
+      start: {{ vattrs["availability"]["start"] }}
+      end: {{ vattrs["availability"]['end'] }}
+
+{% endfor %}

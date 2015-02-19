@@ -33,9 +33,13 @@
   sudo: True
   roles:
     - {role: dns, tags: dns}
+    - {role: controller_edgeconfig, tags: controller_edgeconfig}
   vars_files:
     - deflect.yml
     - clients.yml
+    - edges.yml
+  vars:
+    - network: distributed.deflect.ca
 
 - hosts: vedges
   user: root
