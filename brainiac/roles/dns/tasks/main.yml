@@ -1,6 +1,4 @@
 ---
-- name: Update Apt cache information
-  apt: update_cache=yes
 
 - name: Install bind
   apt: pkg={{item}} state=installed
