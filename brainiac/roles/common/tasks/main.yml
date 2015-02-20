@@ -1,8 +1,5 @@
 ---
 
-- name: Update Apt cache information
-  apt: update_cache=yes
-
 - name: Install basic package requirements
   apt: pkg={{item}} state=installed
   with_items:
