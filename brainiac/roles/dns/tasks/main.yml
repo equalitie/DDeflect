@@ -12,6 +12,8 @@
   notify:
     - reload bind
 
+This change is a bad idea, so probably it will not be merged into Master....
+
 #NOTE: inside the template we access "item.key" in order to access the
 #domain we're working with. it's odd but it works.
 
