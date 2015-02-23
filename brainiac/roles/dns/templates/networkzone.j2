@@ -1,6 +1,6 @@
 # Edge records for {{ item }}
 {% for edge in groups[item] %}
-{{edge.split(".")[0]}}    IN      A     {{hostvars[edge]['ansible_eth0']['ipv4']['address']}}
+{{edge.split(".")[0]}}    IN      A     {{ hostvars[edge]["ip_address"] }}
 {% endfor %}
 
 # Origin records for {{ item }}
