@@ -4,9 +4,13 @@
   with_items:
     - node
     - git
+    - monit
 
 - name: Check out latest stable bundler
   git: repo=https://github.com/equalitie/bundler dest=/opt/bundler update=yes #version=stable
 
 - name: Fetch npm dependencies
   npm: path=/opt/bundler
+
+- name: set up monit
+  template: src=bundler.monit.j2 dest=/etc/monit/conf.d/bundler
