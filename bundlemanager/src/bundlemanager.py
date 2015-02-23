@@ -174,10 +174,14 @@ class DebundlerServer(flask.Flask):
         # wildcard routing
         self.route('/', defaults={'path': ''})(self.rootRoute)
         self.route('/', methods=['POST'])(self.postRoute)
+        self.route("/ping")(self.ping)
         self.route("/_bundle/")(self.serveBundle)
         # more wildcard routing
         self.route('/<path:path>')(self.rootRoute)
         self.route('/<path:path>', methods=['POST'])(self.postRoute)
+
+    def ping(self):
+        return "Hi"
 
     def reloadVEdges(self, vedge_manager):
         self.vedge_manager = vedge_manager
