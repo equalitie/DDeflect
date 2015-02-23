@@ -1,6 +1,4 @@
 ---
-- name: Update Apt cache information
-  apt: update_cache=yes
 
 - name: Install bind
   apt: pkg={{item}} state=installed
@@ -14,12 +12,16 @@
 
 #NOTE: inside the template we access "item.key" in order to access the
 #domain we're working with. it's odd but it works.
+
+- name: Set up zonefile tmpdir
+  file: state=directory path=/var/tmp/ddeflect/ owner=root group=root
+
 - name: Per-site zone files
-  template: src=zone.j2 dest=/tmp/{{ item.key }}.zone owner=root group=bind
+  template: src=zone.j2 dest=/var/tmp/ddeflect/{{ item.key }}.zone owner=root group=bind
   with_dict: remap
 
 - name: Central DNS zone files
-  template: src=networkzone.j2 dest=/tmp/{{item}}.zone owner=root group=bind
+  template: src=networkzone.j2 dest=/var/tmp/ddeflect/{{item}}.zone owner=root group=bind
   with_items: dnets
 
 - name: Master zone file configuration
