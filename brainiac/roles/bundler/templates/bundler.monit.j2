@@ -1,0 +1,7 @@
+check host bundler with address 127.0.0.1
+    start program = "/usr/local/bin/node /opt/bundler/applications/proxyserver.js"
+    stop program  = "/usr/bin/pkill -f 'node /opt/bundler/applications/proxyserver.js'"
+    if failed port 9008 protocol HTTP
+        request /ping
+        with timeout 10 seconds
+        then restart
