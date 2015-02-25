@@ -1,4 +1,8 @@
 {
+{% for site, attributes in remap.iteritems() %}
+  "{{site}}": "{{attributes["origin"]}}",
+  "www.{{site}}": "{{attributes["origin"]}}",
+{% endfor %}
   "distributed.deflect.ca": "deflect.ca",
   "nosmo.me": "fulltimeinter.net"
 }
