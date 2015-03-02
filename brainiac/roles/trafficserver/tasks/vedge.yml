@@ -7,3 +7,8 @@
 
 - name: cache config
   template: src=cache.config.vedge.j2 dest=/etc/trafficserver/cache.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
+  notify:
+    - restart ats
+
+- wait_for: host=0.0.0.0 port=80
+- wait_for: host=0.0.0.0 port=443

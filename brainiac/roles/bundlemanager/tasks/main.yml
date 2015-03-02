@@ -14,7 +14,9 @@
 
 - name: Configure bundlemanager
   template: src=bundlemanager.yaml.j2 dest=/etc/bundlemanager.yaml
-  notify: reload bundlemanager
+  #notify: reload bundlemanager
+
+- wait_for: host=127.0.0.1 port={{bundlemanager_port}}
 
 - name: Ensure bundlemanager is running and enabled
   service: name=bundlemanager state=running enabled=yes
