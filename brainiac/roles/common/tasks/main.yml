@@ -1,5 +1,8 @@
 ---
 
+- apt: update_cache=yes
+  run_once: true
+
 - name: Install basic package requirements
   apt: pkg={{item}} state=installed
   with_items:
