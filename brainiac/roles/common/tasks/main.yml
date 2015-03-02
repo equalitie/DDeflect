@@ -14,6 +14,7 @@
     - tmux
     - screen
     - ntp
+    - ufw
     - ca-certificates
     - psmisc
 
@@ -31,3 +32,6 @@
 - name: set /etc/timezone to {{ timezone }}
   template: src=timezone dest=/etc/timezone
   notify: update tzdata
+
+#- include: ufw.yml
+#  tags: ufw firewall
