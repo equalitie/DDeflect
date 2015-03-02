@@ -1,0 +1,21 @@
+---
+
+- name: Enable UFW
+  ufw: state=enabled logging=on policy=deny
+
+- name: Open inbound ports in UFW
+  ufw: rule=allow port={{item}} direction=in
+  with_items:
+    - 22
+    - 80
+    - 443
+
+- name: Open outbound ports in UFW
+  ufw: rule=allow port={{item}} direction=out
+  with_items:
+    - 6379 #redis
+    - 3000 #bundler
+    - 80
+    - 443
+    - 53
+    - 25
