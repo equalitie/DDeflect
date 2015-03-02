@@ -46,6 +46,8 @@
   roles:
     - {role: edgecommon, tags: [vedge, edgecommon]}
     - {role: trafficserver, tags: [vedge, ats], vedge: True}
+  vars:
+    remap: {}
   vars_files:
     - deflect.yml
     - edges.yml
