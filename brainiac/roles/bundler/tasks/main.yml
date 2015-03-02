@@ -23,3 +23,5 @@
 
 - name: set up monit
   template: src=bundler.monit.j2 dest=/etc/monit/conf.d/bundler
+
+- wait_for: host=127.0.0.1 port={{bundler_port}}
