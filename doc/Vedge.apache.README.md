@@ -48,7 +48,7 @@ CacheHeader on
 # enable the RewriteEngine
 RewriteEngine On
 # rewrite+proxy bundler URIs to the DDeflect TEdge, discarding any query string
-RewriteRule ^${DDeflectPath}/_bundler/(.{128})$ ${DDeflectTEdge}/$1 [P,QSD,DPI,L]
+RewriteRule ^${DDeflectPath}/_bundle/(.{128})$ ${DDeflectTEdge}/_bundle/$1 [P,QSD,DPI,L]
 # send 404 to any other DDeflectPath/ URIs
 RewriteRule ^${DDeflectPath}.*$ - [L,R=404]
 
