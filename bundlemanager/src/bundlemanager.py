@@ -245,7 +245,7 @@ class DebundlerServer(flask.Flask):
                 hmac_key
             )
         except requests.ConnectionError as e:
-            logging.error("Failed to request resources from Reaper! %s", str(e))
+            logging.error("Failed to request resources from Bundler! %s", str(e))
             flask.abort(503)
 
         if not bundler_result:
