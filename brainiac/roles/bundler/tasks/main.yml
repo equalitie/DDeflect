@@ -14,6 +14,7 @@
 
 - file: dest=/etc/ddeflect/ state=directory
 - file: dest=/etc/ddeflect/bundler state=directory
+- file: dest=/opt/bundler/log state=directory owner=nobody group=nogroup
 
 - name: set up bundler config
   template: src=psconfig.json.j2 dest=/etc/ddeflect/bundler/psconfig.json owner=nobody
@@ -22,6 +23,7 @@
   template: src=remaps.json.j2 dest=/etc/ddeflect/bundler/remaps.json owner=nobody
 
 - name: set up monit
-  template: src=bundler.monit.j2 dest=/etc/monit/conf.d/bundler
+  template: src=bundler.monit.j2 dest=/etc/monit/monitrc.d/bundler
+- file: src=/etc/monit/monitrc.d/bundler dest=/etc/monit/conf.d/bundler state=link
 
 - wait_for: host=127.0.0.1 port={{bundler_port}}
