@@ -39,4 +39,7 @@
   notify:
     - restart monit
 
+# Make sure the handlers run before we test for listening ports
+- meta: flush_handlers
+
 - wait_for: host=127.0.0.1 port={{bundler_port}}
