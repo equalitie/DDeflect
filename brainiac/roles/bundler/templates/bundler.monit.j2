@@ -1,5 +1,5 @@
 check host bundler with address 127.0.0.1
-    start program = "/usr/local/bin/node /opt/bundler/proxyserver.js --config /etc/ddeflect/bundler/psconfig.json"
+    start program = "/bin/bash -c 'cd /opt/bundler && /usr/local/bin/node /opt/bundler/proxyserver.js --config /etc/ddeflect/bundler/psconfig.json'"
     stop program  = "/usr/bin/pkill -f 'node /opt/bundler/proxyserver.js'"
     if failed port 9008 protocol HTTP
         request /?ping=true
