@@ -26,7 +26,8 @@ Howto:
 
 * Configure hosts.yml to include your T-edges, V-edges and optionally
 a controller. By default "distributed.deflect.ca" is the T-edge
-nodegroup in this file.
+nodegroup in this file. Ensure that you supply an ip_address variable
+alongside each hostname for DNS configuration.
 
 * Configure an origin via *clients.yml*
 
@@ -48,7 +49,8 @@ straightforward keys in the remap dict.
 
 hosts.yml is used to configure groups of hosts and the controller. The
 controller group is for DNS etc management, the other groups are
-groups that correspond to the `dnets` variable in clients.yml.
+groups that correspond to the `dnets` variable in clients.yml. All
+entries *must* have an `ip_address` argument specified.
 
 *deflect.yml*
 
