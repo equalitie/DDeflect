@@ -49,8 +49,7 @@ case "$1" in
   #	directly anyway, make this a do-nothing entry.
   #
    echo "Reloading $DESC configuration files."
-   start-stop-daemon --stop --signal 1 --quiet --pidfile \
-   /var/run/$NAME/$NAME.pid --exec $DAEMON
+   start-stop-daemon --stop --signal 1 --quiet --pidfile /var/run/$NAME/$NAME.pid
   ;;
   restart|force-reload)
   #
