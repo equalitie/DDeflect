@@ -517,6 +517,7 @@ def createHandler(daemon):
         elif signum == signal.SIGHUP:
             if daemon.debundleServer:
                 logging.warn("Reload V-Edge list")
+                from bundler import settings
                 settings = reload(settings)
                 daemon.debundleServer.reloadVEdges(
                     VedgeManager(settings.v_edges)
