@@ -200,7 +200,7 @@ class DebundlerServer(flask.Flask):
         # user agent + cookies
 
         # Mash together all headers
-        cookie_string = mash_dict(request.headers)
+        cookie_string = mash_dict(request.cookies)
 
         return hashlib.sha512(
             self.salt + request.user_agent.string + \
@@ -362,9 +362,6 @@ class DebundlerServer(flask.Flask):
                 flask.request.url = flask.request.url.replace("http", "https", 1)
             else:
                 logging.info("Got a request for %s request_host with no Via header", request_host)
-
-            #TODO set cookies here
-            #flask.request.cookies.get()
 
             bundlehash = None
             requested_hash = self.genBundleHash(flask.request)
