@@ -23,8 +23,10 @@ import logging.handlers
 # Stop requests from spamming our logs
 logging.getLogger("requests").setLevel(logging.WARNING)
 
+from bundlemaker import BundleMaker
+
 try:
-    from bundler import settings
+    from bundlemaker import settings
 except IOError:
     # IO Error means that we can't load the default settings file.
     if __name__ == "__main__":
@@ -34,9 +36,6 @@ except IOError:
         # We're being imported as a module, there is no hope of
         # recovery.
         raise
-
-from bundler import BundleMaker, PASS_HEADERS
-
 
 def mash_dict(input_dict):
     # Mash together keys and values of a dict
@@ -197,7 +196,19 @@ class DebundlerServer(flask.Flask):
                 + request.environ['REMOTE_ADDR'] + request.headers["host"]
         ).hexdigest()
 
+    def _bundleSigUserAgentCookies(self, request):
+        # user agent + cookies
+
+        # Mash together all headers
+        cookie_string = mash_dict(request.cookies)
+
+        return hashlib.sha512(
+            self.salt + request.user_agent.string + \
+            cookie_string + request_data.headers["host"] + request.path
+        ).hexdigest()
+
     def _bundleSigUserAgentIPCookies(self, request):
+        # user agent + IP + cookies
 
         # Mash together all cookies
         cookie_string = mash_dict(request.cookies)
@@ -208,18 +219,8 @@ class DebundlerServer(flask.Flask):
                 request_data.headers["host"] + request.path
         ).hexdigest()
 
-    def _bundleSigUserAgentCookies(self, request):
-
-        # Mash together all headers
-        cookie_string = mash_dict(request.headers)
-
-        return hashlib.sha512(
-            self.salt + request.user_agent.string + \
-            cookie_string + request_data.headers["host"] + request.path
-        ).hexdigest()
-
     def _bundleSigUserAgentIPHeaders(self, request):
-        """ The most "secure" mechanism """
+        """ The most "unique" mechanism """
 
         # Mash together all headers
         header_string = mash_dict(request.headers)
@@ -266,8 +267,6 @@ class DebundlerServer(flask.Flask):
         self.redis.set(bundle_signature, json.dumps({
             "host": request_host,
             "path": path,
-            #TODO redundant storage - cookies are part of the headers objects
-            "cookies": frequest.cookies,
             "headers": dict(frequest.headers),
             "requestor": frequest.environ["REMOTE_ADDR"],
             "bundle": bundle_content,
@@ -290,12 +289,8 @@ class DebundlerServer(flask.Flask):
             #Return 404
             return None
 
-        # Whitelist a few headers to pass on
-        request_headers = {}
-        for h in PASS_HEADERS:
-            if h in flask.request.headers:
-                request_headers[h] = flask.request.headers[h]
-
+        # Pass all headers
+        request_headers = dict(flask.request.headers)
         request_headers['Host'] = request_host
 
         # TODO this doesn't exist
@@ -367,9 +362,6 @@ class DebundlerServer(flask.Flask):
                 flask.request.url = flask.request.url.replace("http", "https", 1)
             else:
                 logging.info("Got a request for %s request_host with no Via header", request_host)
-
-            #TODO set cookies here
-            #flask.request.cookies.get()
 
             bundlehash = None
             requested_hash = self.genBundleHash(flask.request)
@@ -517,7 +509,7 @@ def createHandler(daemon):
         elif signum == signal.SIGHUP:
             if daemon.debundleServer:
                 logging.warn("Reload V-Edge list")
-                from bundler import settings
+                from bundlemaker import settings
                 settings = reload(settings)
                 daemon.debundleServer.reloadVEdges(
                     VedgeManager(settings.v_edges)
@@ -541,7 +533,7 @@ if __name__ == "__main__":
 
     #Make settings import/reimport available everywhere.
     global settings
-    from bundler import settings
+    from bundlemaker import settings
 
     logger = logging.getLogger()
     if args.verbose:

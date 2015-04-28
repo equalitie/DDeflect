@@ -22,10 +22,6 @@ Third party modules
 import requests
 from Crypto.Cipher import AES
 
-# Headers to copy to the origin
-PASS_HEADERS = ["Cookie", "Referer", "X-Csrf-Token", "Content-Length"]
-
-
 class BundleMaker(object):
 
     def __init__(self, remap_rules, bundler_address):
@@ -57,11 +53,8 @@ class BundleMaker(object):
         self.iv = iv
         self.hmackey = hmackey
 
-        # Pass through request headers directly like a proper proxy
-        request_headers = {}
-        for h in PASS_HEADERS:
-            if h in request.headers:
-                request_headers[h] = request.headers[h]
+        # Pass through request headers directly
+        request_headers = dict(request.headers)
         request_headers["Host"] = host
 
         bundled_page = requests.get(
