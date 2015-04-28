@@ -1,3 +1,22 @@
+bundlemanager (0.1.6) unstable; urgency=low
+
+  * Fix handling of HUP signals.
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie>  Mon, 24 Nov 2014 11:49:00 +0000
+
+bundlemanager (0.1.5) unstable; urgency=low
+
+  * Replacement of Reaper with Ceno Bundler. Replacement of Redis searching with direct hash fetching.
+  * Removal of bundle-based hashing. 
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie>  Mon, 24 Nov 2014 11:49:00 +0000
+
+bundlemanager (0.1.4) unstable; urgency=low
+
+  * Speed improvements, improved HTTPS awareness.
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie>  Mon, 24 Nov 2014 11:49:00 +0000
+
 bundlemanager (0.1.3.1) unstable; urgency=low
 
   * Fixes critical issue in bundler that would break loading of resources.
