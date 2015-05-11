@@ -1,11 +1,11 @@
 Debian instructions for Apache V-edge configuration
 ========
 
-1. If you haven't already, install apache itself `sudo apt-get install apache2`
-2. Enable the cache and reverse proxy modules: `sudo a2enmod cache cache_disk proxy`
+1. If you haven't already, install apache itself `apt-get install apache2`
+2. Enable the cache and reverse proxy modules: `a2enmod cache cache_disk proxy`
 3. Install the configuration file in the section below to `/etc/apache2/sites-available/ddeflect.conf`
 4. Customise the config file as is needed - at a minimum, you'll need to change the DDeflecTEdge definition to represent the T-edge you've been assigned. DDeflectPath should be changed to represent the path you configured your V-edge to use when you signed up.
-5. Run `sudo a2ensite ddeflect`
+5. Run `a2ensite ddeflect`
 
 
 Configuration file
