@@ -36,5 +36,5 @@
   template: src=timezone dest=/etc/timezone
   notify: update tzdata
 
-#- include: ufw.yml
-#  tags: ufw firewall
+- include: ufw.yml
+  tags: [ufw, firewall]
