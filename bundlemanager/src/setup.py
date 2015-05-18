@@ -1,13 +1,11 @@
-import os
-from pip.req import parse_requirements
-from setuptools import setup
+#!/usr/bin/env python
 
-install_reqs = parse_requirements("../requirements.txt")
-reqs = [str(ir.req) for ir in install_reqs]
+import os
+from setuptools import setup
 
 setup(
     name = "bundlemanager",
-    version = "1.0.0",
+    version = "1.0.1",
     author = "Hugh Nowlan",
     author_email = "nosmo@nosmo.me",
     description = "DDeflect bundle management system",
@@ -20,7 +18,15 @@ setup(
         'templates/bundle.json',
         'templates/debundler.js'
     ]},
-    install_requires=reqs,
+    install_requires=[
+        "flask>=0.10.1",
+        "pycrypto",
+        "requests",
+        "nose",
+        "redis",
+        "pyyaml",
+        "jinja2"
+    ],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
