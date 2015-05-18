@@ -137,7 +137,8 @@ class VedgeManager(object):
         """
 
         #For now, just return a random Vedge
-        chosen_vedge = self.vedge_data.keys()[random.randint(0,len(self.vedge_data.keys())-1)]
+        chosen_vedge = self.vedge_data.keys()[
+            random.randint(0, len(self.vedge_data.keys())-1)]
         prefix = self.vedge_data[chosen_vedge].get("prefix", "")
         if prefix and not prefix.startswith("/"):
             chosen_vedge = chosen_vedge + "/" + prefix
@@ -293,7 +294,6 @@ class DebundlerServer(flask.Flask):
         request_headers = dict(flask.request.headers)
         request_headers['Host'] = request_host
 
-        # TODO this doesn't exist
         remapped_origin = self.bundleMaker.remapReqURL(
             remap_host, flask.request
         )
@@ -314,7 +314,7 @@ class DebundlerServer(flask.Flask):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
         if not self.redis.sismember("bundles", bundlehash):
             logging.error("Got request for bundle %s but it is not in the bundles list",
-                           bundlehash)
+                          bundlehash)
             flask.abort(404)
 
         bundle_get = json.loads(self.redis.get(bundlehash))
@@ -331,7 +331,10 @@ class DebundlerServer(flask.Flask):
             return resp
 
     def rootRoute(self, path):
-        #TODO this may be causing issues with premature broken pipes
+        # We don't currently handle favicons because that would slow
+        # down bundling. Returning a 404 here because returning other
+        # codes can actually break loading in some less enlightened
+        # browsers.
         if path == "favicon.ico":
             flask.abort(404)
 
@@ -353,9 +356,10 @@ class DebundlerServer(flask.Flask):
             request_host = flask.request.headers.get('Host')
             logging.debug("New request received - request is for %s", flask.request.url)
 
-            # HACK - Flask doesn't behave properly as an
-            # endpoint. There is a TODO - add header_filter to ATS to
-            # pass this properly. For now we hack around it because
+            # HACK - Flask doesn't behave properly as an endpoint. In
+            # a perfect world we'd use header_filter in ATS to pass
+            # this properly but this isn't always available and we'll
+            # need to repackage. For now we hack around it because
             # fuck computers.
             via_header = flask.request.headers.get("Via")
             if via_header and via_header.startswith("https"):
@@ -391,7 +395,8 @@ class DebundlerServer(flask.Flask):
                 bundle_signature=bundlehash
             )
 
-            logging.debug("Returning template to user for signature %s", bundlehash)
+            logging.debug("Returning template to user for signature %s",
+                          bundlehash)
             resp = flask.Response(render_result, status=200)
 
             return resp
@@ -412,7 +417,8 @@ class bundleManagerDaemon():
 
         self.debundleServer = DebundlerServer()
         logging.info("Starting to serve on port %d", port)
-        self.debundleServer.run(debug=False, threaded=True, host=host, port=port, use_reloader=False)
+        self.debundleServer.run(debug=False, threaded=True,
+                                host=host, port=port, use_reloader=False)
 
     def delpid(self):
         if os.path.exists(settings.general["pidfile"]):
@@ -546,6 +552,10 @@ if __name__ == "__main__":
     logger.addHandler(handler)
 
     #TODO Dropping here breaks binding to ports less than 1025
+    if settings.general["port"] < 1025:
+        logging.error(("Dropping privileges means that the use of ports"
+                       " less than 1025 will fail"))
+
     dropPrivileges(settings.general["uid_name"],
                    settings.general["gid_name"])
 
