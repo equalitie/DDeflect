@@ -18,7 +18,7 @@
 . /lib/lsb/init-functions
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=/usr/bin/bundlemanager
+DAEMON=/usr/local/bin/bundlemanager
 NAME=bundlemanager
 DESC="Bundlemanager daemon"
 
@@ -66,7 +66,7 @@ case "$1" in
 		    ;;
 
   status)
-	status_of_proc -p /var/run/$NAME/$NAME.pid /usr/bin/$NAME $NAME && exit 0 || exit $?
+	status_of_proc -p /var/run/$NAME/$NAME.pid $DAEMON $NAME && exit 0 || exit $?
 	;;
   *)
   N=/etc/init.d/$NAME
