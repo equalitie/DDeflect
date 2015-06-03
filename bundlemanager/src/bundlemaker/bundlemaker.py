@@ -4,14 +4,9 @@
 """
 Python modules
 """
-import lxml.html
 from os.path import splitext
-import urlparse
-import json
 import hmac
 import hashlib
-import mimetypes
-import re
 import base64
 import logging
 import StringIO
