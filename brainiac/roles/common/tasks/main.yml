@@ -13,7 +13,7 @@
     - python
     - curl
     - vim
-    - emacs23-nox
+    - emacs
     - tmux
     - screen
     - ntp
