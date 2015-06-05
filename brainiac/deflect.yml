@@ -9,11 +9,13 @@ default_ssl_key: deflect.ca.key
 default_ssl_cert: deflect.ca.crt
 default_ssl_ca: deflect.ca.CA.crt
 
-ssh_keys: myuser
+ssh_keys: [myuser]
 
 trafserv_home: /var/run/trafficserver/
 bundlehash_salt: feise4iephohng4ahteequu3paKoaQuaeviashim
-bundler_port: 3000
+bundler_port: 9008
+
 bundlemanager_port: 8000
+bundlemanager_version: 1.0.2
 
 dns_primary: SUPER_SEKRIT
