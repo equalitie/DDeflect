@@ -2,9 +2,18 @@
 - name: Install bundler packages
   apt: pkg={{item}} state=installed
   with_items:
-    - node
     - git
     - monit
+- apt: pkg=node state=installed
+  when:
+    ansible_distribution_release == "wheezy"
+
+- apt: pkg={{item}} state=installed
+  with_items:
+    - nodejs
+    - npm
+  when:
+    ansible_distribution_release == "jessie"
 
 - name: Check out latest stable bundler
   git: repo=https://github.com/equalitie/bundler-proxy dest=/opt/bundler update=yes #version=stable
