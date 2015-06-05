@@ -1,0 +1,54 @@
+---
+- name: Install bundler packages
+  apt: pkg={{item}} state=installed
+  with_items:
+    - git
+    - monit
+- apt: pkg=node state=installed
+  when:
+    ansible_distribution_release == "wheezy"
+
+- apt: pkg={{item}} state=installed
+  with_items:
+    - nodejs
+    - npm
+  when:
+    ansible_distribution_release == "jessie"
+
+- name: Check out latest stable bundler
+  git: repo=https://github.com/equalitie/bundler-proxy dest=/opt/bundler update=yes #version=stable
+
+- name: Fetch npm dependencies
+  npm: path=/opt/bundler
+
+- file: dest=/etc/ddeflect/ state=directory
+- file: dest=/etc/ddeflect/bundler state=directory
+- file: dest=/opt/bundler/log state=directory owner=nobody group=nogroup
+
+- name: set up bundler config
+  template: src=psconfig.json.j2 dest=/etc/ddeflect/bundler/psconfig.json owner=nobody
+  notify:
+    - restart bundler
+
+- name: set up remap
+  template: src=remaps.json.j2 dest=/etc/ddeflect/bundler/remaps.json owner=nobody
+  notify:
+    - restart bundler
+
+- name: set up monit
+  template: src=bundler.monit.j2 dest=/etc/monit/monitrc.d/bundler
+  notify:
+    - restart monit
+
+- copy: src=monit.httpd dest=/etc/monit/conf.d/monit.httpd
+  notify:
+    - restart monit
+
+- file: src=/etc/monit/monitrc.d/bundler dest=/etc/monit/conf.d/bundler state=link
+  notify:
+    - restart monit
+
+# Make sure the handlers run before we test for listening ports
+- meta: flush_handlers
+
+- wait_for: host=127.0.0.1 port={{bundler_port}}

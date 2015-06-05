@@ -1,3 +1,53 @@
+bundlemanager (0.1.6) unstable; urgency=low
+
+  * Fix handling of HUP signals.
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie>  Mon, 24 Nov 2014 11:49:00 +0000
+
+bundlemanager (0.1.5) unstable; urgency=low
+
+  * Replacement of Reaper with Ceno Bundler. Replacement of Redis searching with direct hash fetching.
+  * Removal of bundle-based hashing. 
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie>  Mon, 24 Nov 2014 11:49:00 +0000
+
+bundlemanager (0.1.4) unstable; urgency=low
+
+  * Speed improvements, improved HTTPS awareness.
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie>  Mon, 24 Nov 2014 11:49:00 +0000
+
+bundlemanager (0.1.3.1) unstable; urgency=low
+
+  * Fixes critical issue in bundler that would break loading of resources.
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie>  Mon, 24 Nov 2014 11:49:00 +0000
+
+bundlemanager (0.1.3) unstable; urgency=low
+
+  * Replace ZMQ in sitereaper with HTTP server.
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie>  Fri, 14 Nov 2014 17:49:00 +0000
+
+bundlemanager (0.1.2) unstable; urgency=low
+
+  * Replace use of ghost.py with sitereaper worker.
+  * Use of lxml to fetch resources etc.
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie>  Fri, 24 Oct 2014 19:19:00 +0000
+
+bundlemanager (0.1.1) unstable; urgency=low
+
+  * Fixes for init script brokenness.
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie>  Tue, 09 Sep 2014 19:19:00 +0000
+
+bundlemanager (0.1.0) unstable; urgency=low
+
+  * Python implementation of Bundler, support for remaps.
+
+ -- Distributed Deflect Packaging <sysops@equalit.ie>  Tue, 09 Sep 2014 19:19:00 +0000
+
 bundlemanager (0.0.1) unstable; urgency=low
 
   * First version of bundle tracking+bundle management system for Distributed Deflect.

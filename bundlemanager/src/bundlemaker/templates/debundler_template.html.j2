@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<head>
+	<meta charset="UTF-8" />
+        <script src="https://deflect.ca/debundler.js"></script>
+	<script type="application/javascript">
+		var constantTimeCompare = function(str1, str2) {
+			if (str1.length !== str2.length) {
+				return false
+			}
+			var result = 0
+			for (var i = 0; i < str1.length; i++) {
+				result |= str1[i].charCodeAt(0) ^ str2[i].charCodeAt(0)
+			}
+			return result === 0
+		}
+
+		var decryptBundle = function(encrypted, HMAC) {
+			var key       = CryptoJS.enc.Hex.parse('{{key}}')
+			var iVector   = CryptoJS.enc.Hex.parse('{{iv}}')
+			var HMACKey   = '{{hmac_key}}' //CryptoJS.enc.Hex.parse('{{hmac_key}}')
+			var ourHMAC   = CryptoJS.HmacSHA256(encrypted, HMACKey).toString()
+			if (constantTimeCompare(HMAC, ourHMAC)) {
+				var decrypted = CryptoJS.AES.decrypt(encrypted, key, {iv: iVector, mode: CryptoJS.mode.CFB})
+				document.write(decrypted.toString(CryptoJS.enc.Utf8))
+				document.close()
+			}
+			else {
+				// TODO say we failed
+				alert('Integrity check failed! Deflect admins have been notified')
+			}
+		}
+
+		var getBundle = function() {
+			var xhr = new XMLHttpRequest()
+			xhr.open('GET', '{{v_edge}}/_bundle/{{bundle_signature}}', true)
+			xhr.onreadystatechange = function() {
+				if (this.readyState !== 4) return
+				if (this.status !== 200) return
+				// TODO pingback and say we failed to load
+				var returnedContent = this.responseText
+				var bundle_json = JSON.parse(returnedContent);
+				decryptBundle(bundle_json["encrypted"], bundle_json["hmac"])
+			}
+			xhr.send()
+		}
+	</script>
+</head>
+<body onload="getBundle()">
+	<noscript>JavaScript is required to display the contents of this page!</noscript>
+</body>
+</html>

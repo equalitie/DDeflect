@@ -9,8 +9,6 @@ Defaults        env_reset
 
 # User alias specification
 
-User_Alias      TSADM=trafserv,david,dmitri
-
 # Host alias specification
 #Host_Alias     TSEDGE=li149-169
 
@@ -29,7 +27,6 @@ Cmnd_Alias      TRAFSERV        =/usr/local/trafficserver/bin/traffic_cop,      
                                 /etc/init.d/fail2ban
 
 # User privilege specification
-TSADM           ALL = NOPASSWD: TRAFSERV
 
 nagios ALL=NOPASSWD: /usr/bin/fail2ban-client
 nagios ALL=NOPASSWD: /sbin/iptables

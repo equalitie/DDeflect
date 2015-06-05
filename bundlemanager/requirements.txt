@@ -1,0 +1,7 @@
+flask>=0.10.1
+pycrypto
+requests
+nose
+redis
+pyyaml
+jinja2

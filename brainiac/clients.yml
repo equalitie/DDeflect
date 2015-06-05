@@ -1,27 +1,47 @@
 dnets:
-  - staging.deflect.ca
+  - distributed.deflect.ca
 
-remap: {
-    "mysite.com": {
-      "disable_logging": True,
-      "network": "staging.deflect.ca",
-      "hidden": "uas98u9ajaja",
-      "https": True,
-      "origin": "127.0.0.2",
-      "dns_records": {
-        "www": {"type": "CNAME", "value": "myothertestsite.com"},
-        "@": {"type": "A", "value": "127.0.0.1"}
-      }
-    },
-    "myothersite.com": {
-      "disable_logging": False,
-      "network": "staging.deflect.ca",
-      "hidden": "kauih98u9ajaja",
-      "https": False,
-      "origin": "127.0.0.3",
-      "dns_records": {
-        "www": {"type": "CNAME", "value": "myothersite.com"},
-        "@": {"type": "A", "value": "127.0.0.1"}
-      }
-  }
-}
+remap:
+  # The upper domain that we're configuring
+  "mysite.com":
+      # Should logging of HTTP requests be disabled?
+      "disable_logging": True
+      # What dnet is the host going to be on?
+      "network": "distributed.deflect.ca"
+      # What hidden domain should be used to directly address the
+      # origin? This should be randomly generated
+      "hidden": "uas98u9ajaja"
+      # Enable HTTPS/SNI support for this domain?
+      "https": True
+      # Is this host ready to go live? Not currently in use
+      "live": True
+      # IP address from which content is served
+      "origin": "127.0.0.2"
+      # SSL CA bundle filename
+      "ssl_ca": ""
+      # SSL certificate filename
+      "ssl_cert": ""
+      # SSL key filename
+      "ssl_key": ""
+      # Dictionary of DNS records - key is the label, "type" and "value" are mandatory keys
+      "dns_records":
+        "www":
+          - {"type": "CNAME", "value": "myothertestsite.com"}
+        "@":
+          - {"type": "A", "value": "127.0.0.1"}
+
+  "myothersite.com":
+    "disable_logging": False
+    "network": "distributed.deflect.ca"
+    "hidden": "kauih98u9ajaja"
+    "ssl_ca": ""
+    "live": True
+    "ssl_cert": ""
+    "ssl_key": ""
+    "https": False
+    "origin": "127.0.0.3"
+    "dns_records":
+      "www":
+        - {"type": "CNAME", "value": "myothersite.com"}
+      "@":
+        - {"type": "A", "value": "127.0.0.1"}

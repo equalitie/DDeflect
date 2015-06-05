@@ -1,3 +1,4 @@
 conf/bundlemanager.yaml /etc/
 src/bundlemanager /usr/bin
+src/bundler/ /usr/share/pyshared
 lib/templates /usr/share/bundlemanager/

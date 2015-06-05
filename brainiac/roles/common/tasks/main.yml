@@ -1,7 +1,7 @@
 ---
 
-- name: Update Apt cache information
-  apt: update_cache=yes
+- apt: update_cache=yes
+  run_once: true
 
 - name: Install basic package requirements
   apt: pkg={{item}} state=installed
@@ -10,11 +10,18 @@
     - rsync
     - ntp
     - iftop
+    - python
+    - curl
     - vim
-    - emacs23-nox
+    - emacs
     - tmux
     - screen
     - ntp
+    - ufw
+    - ca-certificates
+    - psmisc
+
+- copy: src=tmux.conf dest=/root/.tmux.conf
 
 - name: Ensure ntpd is running and enabled
   service: name=ntp state=running enabled=yes
@@ -28,3 +35,6 @@
 - name: set /etc/timezone to {{ timezone }}
   template: src=timezone dest=/etc/timezone
   notify: update tzdata
+
+- include: ufw.yml
+  tags: [ufw, firewall]

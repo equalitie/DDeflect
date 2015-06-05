@@ -1,20 +1,28 @@
 ---
 
-- name: Install bundlemanager packages
+- name: Set up bundlemanager tmpdir
+  file: state=directory path=/var/run/bundlemanager/ owner=nobody group=nogroup
+
+- name: Install requirements
   apt: pkg={{item}} state=installed
   with_items:
-    - bundlemanager
     - redis-server
-
-- name: Set up bundlemanager tmpdir
-  file: ensure=directory path=/var/run/bundlemanager/ owner=nobody group=nobody
+    - python-pip
+    - python-dev
 
 - name: Ensure redis is running and enabled
   service: name=redis-server state=running enabled=yes
 
-- name: Ensure bundlemanager is running and enabled
-  service: name=bundlemanager state=running enabled=yes
+- name: Install Bundlemanager
+  pip: name=bundlemanager version={{bundlemanager_version}}
+
+- copy: src=bundlemanager.init dest=/etc/init.d/bundlemanager owner=root group=root
 
 - name: Configure bundlemanager
   template: src=bundlemanager.yaml.j2 dest=/etc/bundlemanager.yaml
   notify: reload bundlemanager
+
+- name: Ensure bundlemanager is running and enabled
+  service: name=bundlemanager state=running enabled=yes
+
+- wait_for: host=127.0.0.1 port={{bundlemanager_port}}

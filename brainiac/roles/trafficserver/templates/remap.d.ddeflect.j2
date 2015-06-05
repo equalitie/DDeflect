@@ -1,0 +1,9 @@
+#map http://{{item.key}}  http://{{remap[item.key]["hidden"]}}.{{remap[item.key]["network"]}}/ @action=allow @method=post
+
+{% if remap[item.key]["network"] == network %}
+{% if remap[item.key]["https"] %}
+regex_map    https://^(www\.)?{{item.key}}$/         http://{{remap[item.key]["hidden"]}}.{{remap[item.key]["network"]}}/
+{% endif %}
+regex_map    http://^(www\.)?{{item.key}}$/         http://localhost:{{ bundlemanager_port }}/  @action=allow @method=get @method=head
+#regex_map    http://^(www\.)?{{item.key}}$/         http://localhost:{{ bundlemanager_port }}/  @action=deny
+{% endif %}

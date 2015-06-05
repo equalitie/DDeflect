@@ -1,0 +1,29 @@
+{
+  "name": "SiteReaper",
+  "version": "0.0.1",
+  "author": "Bill Doran <bill@equalit.ie>",
+  "private": true,
+  "dependencies": {
+    "faye-websocket": "latest",
+    "zmq": "latest",
+    "method-override": "latest",
+    "body-parser": "latest",
+    "compression": "latest",
+    "portscanner": "latest",
+    "phantomjs": "latest",
+    "express": "latest",
+    "request": "latest",
+    "phantom": "latest",
+    "colors": "latest",
+    "mime": "latest",
+    "node-syslog": "latest",
+    "js-yaml": "latest",
+    "daemonize2": "latest"
+  },
+  "devDependencies": {
+    "grunt": "~0.4.5",
+    "grunt-contrib-jshint": "~0.7.2",
+    "grunt-contrib-watch": "~0.5.3",
+    "grunt-debian-package": "~0.1.9"
+  }
+}

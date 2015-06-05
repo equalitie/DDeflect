@@ -1,26 +1,28 @@
+---
+- name: Set resolv.conf
+  file: src=resolv.conf dest=/etc/resolv.conf owner=root group=root
+
 - name: Set up sudoers
   copy: src=sudoers dest=/etc/sudoers
-
-- name: Make trafficserver SSH directory
-  file: path={{trafserv_home}}/.ssh state=directory owner=trafficserver group=trafficserver
-
-- name: Install trafficserver SSH key
-  authorized_key: user=trafficserver
-                  key="{{ lookup('file', 'trafficserver_id_rsa.pub') }}"
-                  path='{{trafserv_home}}/.ssh/authorized_keys'
-                  manage_dir=no
 
 - name: Make root SSH directory
   file: path=/root/.ssh state=directory owner=root group=root
 
 - name: Install root SSH key
   authorized_key: user=root
-                  key="{{ lookup('file', 'root_id_rsa.pub') }}"
-                  path='/root/.ssh/authorized_keys'
-                  manage_dir=no
+                  key="{{ lookup('file', [sensitive_files,'root_id_rsa.pub']|join("")) }}"
+
+- name: Install user SSH keys
+  authorized_key: user=root
+                  key="{{ lookup('file', [sensitive_files,item,'.pub']|join("")) }}"
+                  state=present
+  with_items: ssh_keys
 
 - name: Set hostname
   hostname: name={{ inventory_hostname }}
+
+- name: Add DDeflect apt signing key
+  apt_key: url=https://users.deflect.ca/ddeflect_signing.key state=present
 
 - name: Ensure the Deflect apt repository is added
   apt_repository: state=present repo='deb http://users.deflect.ca/repo/ wheezy main'

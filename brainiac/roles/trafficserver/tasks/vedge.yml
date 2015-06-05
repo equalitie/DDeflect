@@ -1,0 +1,14 @@
+---
+- name: records config
+  template: src=records.5.vedge.j2 dest=/etc/trafficserver/records.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
+
+- name: general remap config
+  template: src=remap.conf.vedge.j2 dest=/etc/trafficserver/remap.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
+
+- name: cache config
+  template: src=cache.config.vedge.j2 dest=/etc/trafficserver/cache.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
+  notify:
+    - restart ats
+
+- wait_for: host=0.0.0.0 port=80
+- wait_for: host=0.0.0.0 port=443

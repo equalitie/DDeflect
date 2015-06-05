@@ -1,0 +1,18 @@
+{
+	"useProxy": false,
+	"drop_user": "nobody",
+	"drop_group": "nogroup",
+	"proxyAddress": "http://localhost:80",
+        "listenPort": {{bundler_port}},
+	"followFirstRedirect": true,
+	"followAllRedirects": false,
+	"redirectLimit": 10,
+	"cloneHeaders": [
+		"referer",
+		"cookie"
+	],
+	"spoofHeaders": {
+		"Origin": "Bundler"
+	},
+	"remapsFile": "/etc/ddeflect/bundler/remaps.json"
+}

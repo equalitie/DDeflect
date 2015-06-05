@@ -1,0 +1,3 @@
+{% for edge in groups["distributed.deflect.ca"] %}
+map     http://{{inventory_hostname}}:{{vedges[inventory_hostname]["port"]}}     http://{{edge}}
+{% endfor %}

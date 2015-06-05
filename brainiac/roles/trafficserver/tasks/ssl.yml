@@ -1,0 +1,28 @@
+---
+- name: Configure user SSL certs
+  template: src=ssl_multicert.config.j2 dest=/etc/trafficserver/ssl_multicert.config owner={{trafficserver_user}} group={{trafficserver_group}}
+
+- name: Make SSL directory
+  file: dest=/etc/trafficserver/ssl state=directory owner={{trafficserver_user}} group={{trafficserver_group}}
+
+- name: Install user certs
+  synchronize: src={{item.value.ssl_cert}} dest=/etc/trafficserver/ssl/ #owner={{trafficserver_user}} group={{trafficserver_group}}
+  with_dict: remap
+  when: item.value.https == True
+
+- name: Install user keys
+  synchronize: src={{item.value.ssl_key}} dest=/etc/trafficserver/ssl/{{item.value.ssl_key}} #owner={{trafficserver_user}} group={{trafficserver_group}}
+  with_dict: remap
+  when: item.value.https == True
+
+- name: Install user CA bundles
+  synchronize: src={{item.value.ssl_ca}} dest=/etc/trafficserver/ssl/{{item.value.ssl_ca}}
+  with_dict: remap
+  when: item.value.https == True and "ssl_ca" in item.value
+
+- name: Install default SSL stuff
+  synchronize: src={{default_ssl_key}} dest=/etc/trafficserver/ssl/{{default_ssl_key}}
+- synchronize: src={{default_ssl_cert}} dest=/etc/trafficserver/ssl/{{default_ssl_cert}}
+- synchronize: src={{default_ssl_ca}} dest=/etc/trafficserver/ssl/{{default_ssl_ca}}
+
+- file: path=/etc/trafficserver/ssl/ owner={{trafficserver_user}} group={{trafficserver_group}} mode=700 recurse=yes

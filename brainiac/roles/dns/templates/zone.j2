@@ -1,5 +1,23 @@
-{% for domain, attributes in remap[item.key]["dns_records"].iteritems() %}
+{% for domain, entries in remap[item.key]["dns_records"].iteritems() %}
+{% for entry in entries %}
 {% if domain not in dnets %}
-{{domain}}       IN      {{attributes["type"]}}    {{attributes["value"]}}
+{% if domain == item.key or domain == "@" %}
+{% if entry["type"] == "NS" or entry["type"] == "A" %}
+; skipped record of type {{entry["type"]}} and value {{entry["value"]}}
+{% elif entry["type"] == "MX" %}
+{{domain}}	IN	{{entry["type"]}}       {{entry["value"][0]}}   {{entry["value"][1]}}
+{% else %}
+@		IN	{{entry["type"]}}       {{entry["value"]}}
 {% endif %}
+{% else %}
+{% if entry["type"] == "MX" %}
+{{domain}}	IN	{{entry["type"]}}	{{entry["value"][0]}}	{{entry["value"][1]}}
+{% elif domain == "www" and (entry["type"] == "A" or entry["type"] == "CNAME") %}
+www		IN	 CNAME  {{item.key}}.
+{% else %}
+{{domain}}	IN	{{entry["type"]}}	{{entry["value"]}}
+{% endif %}
+{% endif %}
+{% endif %}
+{% endfor %}
 {% endfor %}
