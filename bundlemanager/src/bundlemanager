@@ -4,6 +4,7 @@ import flask
 import requests
 import redis
 
+import pkg_resources
 import argparse
 import json
 import collections
@@ -17,7 +18,6 @@ import signal
 import threading
 import logging
 import random
-import urlparse
 import logging.handlers
 
 # Stop requests from spamming our logs
@@ -52,11 +52,11 @@ class DebundlerMaker(object):
         self.key = None
         self.iv = None
         self.hmac_key = None
-        self.genKeys()
+        self.gen_keys()
         self.refresher = threading.Timer(self.refresh_period,
-                                         self.genKeys())
+                                         self.gen_keys())
 
-    def genKeys(self):
+    def gen_keys(self):
 
         key_bytes = os.urandom(16)
         iv_bytes = os.urandom(16)
@@ -115,14 +115,14 @@ class VedgeManager(object):
         # in terms of bandwidth, this should be handled by the badnwidth
         # recorder
         '''
-    def refreshVedges(self):
+    def refresh_vedges(self):
         """
         Rebuild v-edge list is number of available v-edges
         has slipped below predefined threshold
         """
         pass
 
-    def getVedge(self):
+    def get_vedge(self):
         """
         This function selects v-edges based on
         their current availability, the time last accessed,
@@ -131,7 +131,7 @@ class VedgeManager(object):
         # pop first element in sorted list, reset timestamp
         """
         if self.redis.llen("active_vedges") < self.vedge_threshold:
-            self.refreshVedges()
+            self.refresh_vedges()
         vedge = self.redis.srandmember("active_vedges")
         return vedge
         """
@@ -172,32 +172,32 @@ class DebundlerServer(flask.Flask):
         self.redis = redis.Redis(host=redis_host)
 
         # wildcard routing
-        self.route('/', defaults={'path': ''})(self.rootRoute)
-        self.route('/', methods=['POST'])(self.postRoute)
+        self.route('/', defaults={'path': ''})(self.root_route)
+        self.route('/', methods=['POST'])(self.post_route)
         self.route("/ping")(self.ping)
-        self.route("/_bundle/")(self.serveBundle)
+        self.route("/_bundle/")(self.serve_bundle)
         # more wildcard routing
-        self.route('/<path:path>')(self.rootRoute)
-        self.route('/<path:path>', methods=['POST'])(self.postRoute)
+        self.route('/<path:path>')(self.root_route)
+        self.route('/<path:path>', methods=['POST'])(self.post_route)
 
     def ping(self):
         return "Hi"
 
-    def reloadVEdges(self, vedge_manager):
+    def reload_vedges(self, vedge_manager):
         self.vedge_manager = vedge_manager
 
-    def _bundleSigHostPath(self, request):
+    def _bundle_sig_host_path(self, request):
         return hashlib.sha512(
             self.salt + request.path + request.headers["host"]
         ).hexdigest()
 
-    def _bundleSigUserAgentIP(self, request):
+    def _bundle_sig_useragent_ip(self, request):
         return hashlib.sha512(
             self.salt + request.path + request.user_agent.string \
                 + request.environ['REMOTE_ADDR'] + request.headers["host"]
         ).hexdigest()
 
-    def _bundleSigUserAgentCookies(self, request):
+    def _bundle_sig_user_agent_cookies(self, request):
         # user agent + cookies
 
         # Mash together all headers
@@ -205,10 +205,10 @@ class DebundlerServer(flask.Flask):
 
         return hashlib.sha512(
             self.salt + request.user_agent.string + \
-            cookie_string + request_data.headers["host"] + request.path
+            cookie_string + request.headers["host"] + request.path
         ).hexdigest()
 
-    def _bundleSigUserAgentIPCookies(self, request):
+    def _bundle_sig_useragent_ipCookies(self, request):
         # user agent + IP + cookies
 
         # Mash together all cookies
@@ -217,10 +217,10 @@ class DebundlerServer(flask.Flask):
         return hashlib.sha512(
             self.salt + request.user_agent.string + \
                 cookie_string + request.environ['REMOTE_ADDR'] + \
-                request_data.headers["host"] + request.path
+                request.headers["host"] + request.path
         ).hexdigest()
 
-    def _bundleSigUserAgentIPHeaders(self, request):
+    def _bundle_sig_useragent_ipHeaders(self, request):
         """ The most "unique" mechanism """
 
         # Mash together all headers
@@ -229,13 +229,13 @@ class DebundlerServer(flask.Flask):
         return hashlib.sha512(
             self.salt + request.user_agent.string + \
             request.environ['REMOTE_ADDR'] + header_string + \
-            request_data.headers["host"] + request.path
+            request.headers["host"] + request.path
         ).hexdigest()
 
-    def genBundleHash(self, request):
-        return self._bundleSigUserAgentIP(request)
+    def gen_bundle_hash(self, request):
+        return self._bundle_sig_useragent_ip(request)
 
-    def genBundle(self, frequest, path, key, iv, hmac_key):
+    def gen_bundle(self, frequest, path, key, iv, hmac_key):
         request_host = frequest.headers.get('Host')
         logging.debug("Bundle request url is %s", frequest.url)
 
@@ -257,13 +257,14 @@ class DebundlerServer(flask.Flask):
         #Not 1 thousand percent sure this is the same as what you
         # are currently saving so needs to be rechecked
         logging.info("hmac_sig: %s", bundler_result['hmac_sig'])
+        bundle_json_path = pkg_resources.resource_filename('bundlemaker', "templates/bundle.json")
         rendered_bundle = flask.render_template(
-            "bundle.json",
+            bundle_json_path,
             encrypted=bundler_result['bundle'],
             hmac=bundler_result['hmac_sig']
         )
         bundle_content = rendered_bundle
-        bundle_signature = self.genBundleHash(frequest)
+        bundle_signature = self.gen_bundle_hash(frequest)
         self.redis.sadd("bundles", bundle_signature)
         self.redis.set(bundle_signature, json.dumps({
             "host": request_host,
@@ -277,7 +278,7 @@ class DebundlerServer(flask.Flask):
 
         return bundle_signature
 
-    def postRoute(self):
+    def post_route(self):
         """
         Passes POST request directly to the remapped origin
         returns the server's response
@@ -294,6 +295,7 @@ class DebundlerServer(flask.Flask):
         request_headers = dict(flask.request.headers)
         request_headers['Host'] = request_host
 
+        #TODO this is broken, function no longer exists
         remapped_origin = self.bundleMaker.remapReqURL(
             remap_host, flask.request
         )
@@ -306,11 +308,13 @@ class DebundlerServer(flask.Flask):
             cookies=flask.request.cookies,
         )
 
+        # TODO this doesn't return any content, just returns the
+        # requests Response object. not sure whether bill tested this.
         return flask.Response(
             response=proxied_response
         )
 
-    def serveBundle(self, bundlehash):
+    def serve_bundle(self, bundlehash):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
         if not self.redis.sismember("bundles", bundlehash):
             logging.error("Got request for bundle %s but it is not in the bundles list",
@@ -330,7 +334,32 @@ class DebundlerServer(flask.Flask):
             resp.headers['Access-Control-Allow-Origin'] = "*"
             return resp
 
-    def rootRoute(self, path):
+    def reverse_proxy(self, request, path):
+        host = request.headers.get("Host")
+        if not host:
+            # We don't proxy for domains with no host header
+            flask.abort(403)
+
+        if host not in settings.remap:
+            # We don't proxy for hosts we're not configured for
+            logging.warn("Received an invalid request for %s/%s from %s.",
+                         host, path, request.headers.get("X-Forwarded-For"))
+            flask.abort(403)
+
+        origin = settings.remap[host]
+        request_headers = dict(request.headers)
+        remapped_url = request.url.replace(host, origin, 1)
+
+        proxied_response_obj = requests.get(
+            remapped_url,
+            headers=request_headers,
+            data=dict(request.form),
+            cookies=dict(request.cookies)
+        )
+
+        return proxied_response_obj
+
+    def root_route(self, path):
         # We don't currently handle favicons because that would slow
         # down bundling. Returning a 404 here because returning other
         # codes can actually break loading in some less enlightened
@@ -338,20 +367,33 @@ class DebundlerServer(flask.Flask):
         if path == "favicon.ico":
             flask.abort(404)
 
+        ddeflect_session_id = flask.request.cookies.get("X-DDeflect-Session")
+
         if path.startswith("_bundle"):
             logging.debug("Got a _bundle request at %s", path)
             if "/" not in path:
                 logging.error("got request that started with _bundle but had no slash!")
                 flask.abort(503)
-            return self.serveBundle(path.split("/")[1])
+            return self.serve_bundle(path.split("/")[1])
+        elif self.redis.exists("session_%s" % ddeflect_session_id):
+            # We're *not* serving a bundle but we *do* have a valid
+            # DDeflect session ID - reverse proxy our request directly
+            # with no bundling.
+            revproxy_result = self.reverse_proxy(flask.request, path)
+            if revproxy_result.ok:
+                return flask.Response(revproxy_result.text, status=200)
+            else:
+                flask.abort(revproxy_result.code)
+
         else:
-            v_edge = self.vedge_manager.getVedge()
+            v_edge = self.vedge_manager.get_vedge()
             key = self.debundler_maker.key
             iv = self.debundler_maker.iv
             hmac_key = self.debundler_maker.hmac_key
 
             if not path:
                 path = "/"
+
 
             request_host = flask.request.headers.get('Host')
             logging.debug("New request received - request is for %s", flask.request.url)
@@ -368,7 +410,7 @@ class DebundlerServer(flask.Flask):
                 logging.info("Got a request for %s request_host with no Via header", request_host)
 
             bundlehash = None
-            requested_hash = self.genBundleHash(flask.request)
+            requested_hash = self.gen_bundle_hash(flask.request)
 
             if self.redis.exists(requested_hash):
                 # TODO Should we update the last fetched time? Update the expiry?
@@ -376,8 +418,8 @@ class DebundlerServer(flask.Flask):
 
             if not bundlehash:
                 logging.debug("No bundle hash found. Requesting new bundle")
-                bundlehash = self.genBundle(flask.request, path,
-                                            key, iv, hmac_key)
+                bundlehash = self.gen_bundle(flask.request, path,
+                                             key, iv, hmac_key)
                 if not bundlehash:
                     logging.error("Failing because bundlehash was null")
                     flask.abort(404)
@@ -401,7 +443,7 @@ class DebundlerServer(flask.Flask):
 
             return resp
 
-class bundleManagerDaemon():
+class BundleManagerDaemon():
     def __init__(self, stdin='/dev/stdin',
                  stdout='/dev/stdout',
                  stderr='/dev/stderr'):
@@ -430,16 +472,18 @@ class bundleManagerDaemon():
             if pid > 0:
                 sys.exit(0)
         except OSError, e:
-            logging.error("fork #1 failed: %d (%s)\n" % (e.errno,
-                                                         e.strerror))
+            logging.error("fork #1 failed: %d (%s)\n",
+                          e.errno,
+                          e.strerror)
             sys.exit(1)
         try:
             pid = os.fork()
             if pid > 0:
                 sys.exit(0)
         except OSError, e:
-            sys.stderr.write("fork #2 failed: %d (%s)\n" % (e.errno,
-                                                            e.strerror))
+            sys.stderr.write("fork #2 failed: %d (%s)\n",
+                             e.errno,
+                             e.strerror)
             sys.exit(1)
         pid = str(os.getpid())
 
@@ -488,7 +532,7 @@ class bundleManagerDaemon():
         self.stop()
         self.start()
 
-def dropPrivileges(uid_name='nobody', gid_name='no_group'):
+def drop_privileges(uid_name='nobody', gid_name='no_group'):
     if os.getuid() != 0:
         return
 
@@ -507,8 +551,8 @@ def dropPrivileges(uid_name='nobody', gid_name='no_group'):
     #TODO what is old_umask supposed to be for?
     old_umask = os.umask(077)
 
-def createHandler(daemon):
-    def _handleSignal(signum, frame):
+def create_handler(daemon):
+    def _handle_signal(signum, frame):
         if signum == signal.SIGTERM:
             daemon.stop()
             logging.warn("Closing on SIGTERM")
@@ -517,22 +561,12 @@ def createHandler(daemon):
                 logging.warn("Reload V-Edge list")
                 from bundlemaker import settings
                 settings = reload(settings)
-                daemon.debundleServer.reloadVEdges(
+                daemon.debundleServer.reload_vedges(
                     VedgeManager(settings.v_edges)
                 )
-    return _handleSignal
+    return _handle_signal
 
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description='Manage DDeflect bundle serving and retreival.')
-    parser.add_argument('-c', dest='config_path', action='store',
-                        default='/etc/bundlemanager.yaml',
-                        help='Path to config file.')
-    parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
-                        help='Verbose mode, not daemonized')
-
-    args = parser.parse_args()
+def main(args):
     if "BUNDLEMANAGER_CONFIG" not in os.environ:
         #Backwards compatability
         os.environ["BUNDLEMANAGER_CONFIG"] = args.config_path
@@ -556,15 +590,26 @@ if __name__ == "__main__":
         logging.error(("Dropping privileges means that the use of ports"
                        " less than 1025 will fail"))
 
-    dropPrivileges(settings.general["uid_name"],
-                   settings.general["gid_name"])
+    drop_privileges(settings.general["uid_name"],
+                    settings.general["gid_name"])
 
-    daemon = bundleManagerDaemon()
-    signal.signal(signal.SIGTERM, createHandler(daemon))
-    signal.signal(signal.SIGHUP, createHandler(daemon))
+    daemon = BundleManagerDaemon()
+    signal.signal(signal.SIGTERM, create_handler(daemon))
+    signal.signal(signal.SIGHUP, create_handler(daemon))
 
     if args.verbose:
         daemon.run()
     else:
         daemon.start()
     sys.exit(0)
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description='Manage DDeflect bundle serving and retreival.')
+    parser.add_argument('-c', dest='config_path', action='store',
+                        default='/etc/bundlemanager.yaml',
+                        help='Path to config file.')
+    parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
+                        help='Verbose mode, not daemonized')
+
+    args = parser.parse_args()
