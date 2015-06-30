@@ -215,7 +215,7 @@ class DebundlerServer(flask.Flask):
             cookie_string + request.headers["host"] + request.path
         ).hexdigest()
 
-    def _bundle_sig_useragent_ipCookies(self, request):
+    def _bundle_sig_useragent_ip_cookies(self, request):
         # user agent + IP + cookies
 
         # Mash together all cookies
@@ -227,7 +227,7 @@ class DebundlerServer(flask.Flask):
                 request.headers["host"] + request.path
         ).hexdigest()
 
-    def _bundle_sig_useragent_ipHeaders(self, request):
+    def _bundle_sig_useragent_ip_headers(self, request):
         """ The most "unique" mechanism """
 
         # Mash together all headers
