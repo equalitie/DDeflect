@@ -4,26 +4,29 @@ import flask
 import requests
 import redis
 
-import pkg_resources
 import argparse
-import json
 import collections
-import time
-import hashlib
-import sys
-import os
-import pwd
 import grp
-import signal
-import threading
+import hashlib
+import json
 import logging
-import random
 import logging.handlers
+import os
+import pkg_resources
+import pwd
+import random
+import signal
+import sys
+import threading
+import time
 
 # Stop requests from spamming our logs
 logging.getLogger("requests").setLevel(logging.WARNING)
 
 from bundlemaker import BundleMaker
+
+SESSION_COOKIE_NAME = "X-DDeflect-Session"
+SESSION_COOKIE_LIFETIME = 60
 
 try:
     from bundlemaker import settings
@@ -149,9 +152,13 @@ class DebundlerServer(flask.Flask):
 
 
     def __init__(self):
-        super(DebundlerServer, self).__init__("DebundlerServer")
         if "template_directory" in settings.general:
             self.template_folder = settings.general["template_directory"]
+        else:
+            self.template_folder = pkg_resources.resource_filename('bundlemaker', "templates")
+
+        super(DebundlerServer, self).__init__("DebundlerServer",
+                                              template_folder=self.template_folder)
 
         self.debundler_maker = DebundlerMaker(settings.general["refresh_period"])
         self.vedge_manager = VedgeManager(settings.v_edges)
@@ -259,7 +266,7 @@ class DebundlerServer(flask.Flask):
         logging.info("hmac_sig: %s", bundler_result['hmac_sig'])
         bundle_json_path = pkg_resources.resource_filename('bundlemaker', "templates/bundle.json")
         rendered_bundle = flask.render_template(
-            bundle_json_path,
+            "bundle.json",
             encrypted=bundler_result['bundle'],
             hmac=bundler_result['hmac_sig']
         )
@@ -346,7 +353,7 @@ class DebundlerServer(flask.Flask):
                          host, path, request.headers.get("X-Forwarded-For"))
             flask.abort(403)
 
-        origin = settings.remap[host]
+        origin = settings.remap[host]["origin"]
         request_headers = dict(request.headers)
         remapped_url = request.url.replace(host, origin, 1)
 
@@ -367,7 +374,21 @@ class DebundlerServer(flask.Flask):
         if path == "favicon.ico":
             flask.abort(404)
 
-        ddeflect_session_id = flask.request.cookies.get("X-DDeflect-Session")
+        request_host = flask.request.headers.get('Host')
+        logging.debug("New request received - request is for %s", flask.request.url)
+
+        # HACK - Flask doesn't behave properly as an endpoint. In
+        # a perfect world we'd use header_filter in ATS to pass
+        # this properly but this isn't always available and we'll
+        # need to repackage. For now we hack around it because
+        # fuck computers.
+        via_header = flask.request.headers.get("Via")
+        if via_header and via_header.startswith("https"):
+            flask.request.url = flask.request.url.replace("http", "https", 1)
+        else:
+            logging.info("Got a request for %s request_host with no Via header", request_host)
+
+        ddeflect_session_id = flask.request.cookies.get(SESSION_COOKIE_NAME)
 
         if path.startswith("_bundle"):
             logging.debug("Got a _bundle request at %s", path)
@@ -376,10 +397,17 @@ class DebundlerServer(flask.Flask):
                 flask.abort(503)
             return self.serve_bundle(path.split("/")[1])
         elif self.redis.exists("session_%s" % ddeflect_session_id):
+
             # We're *not* serving a bundle but we *do* have a valid
             # DDeflect session ID - reverse proxy our request directly
             # with no bundling.
+
+            logging.info("Serving resource %s unbundled because of valid session ID",
+                         flask.request.url)
+
             revproxy_result = self.reverse_proxy(flask.request, path)
+            self.redis.incr("session_%s" % ddeflect_session_id)
+
             if revproxy_result.ok:
                 return flask.Response(revproxy_result.text, status=200)
             else:
@@ -393,21 +421,6 @@ class DebundlerServer(flask.Flask):
 
             if not path:
                 path = "/"
-
-
-            request_host = flask.request.headers.get('Host')
-            logging.debug("New request received - request is for %s", flask.request.url)
-
-            # HACK - Flask doesn't behave properly as an endpoint. In
-            # a perfect world we'd use header_filter in ATS to pass
-            # this properly but this isn't always available and we'll
-            # need to repackage. For now we hack around it because
-            # fuck computers.
-            via_header = flask.request.headers.get("Via")
-            if via_header and via_header.startswith("https"):
-                flask.request.url = flask.request.url.replace("http", "https", 1)
-            else:
-                logging.info("Got a request for %s request_host with no Via header", request_host)
 
             bundlehash = None
             requested_hash = self.gen_bundle_hash(flask.request)
@@ -440,6 +453,14 @@ class DebundlerServer(flask.Flask):
             logging.debug("Returning template to user for signature %s",
                           bundlehash)
             resp = flask.Response(render_result, status=200)
+
+            ddeflect_session_id = "%x" % random.getrandbits(128)
+            # TODO allow for updating of the max_age
+            resp.set_cookie(SESSION_COOKIE_NAME, ddeflect_session_id,
+                            max_age=SESSION_COOKIE_LIFETIME)
+            self.redis.set("session_%s" % ddeflect_session_id, 0)
+            self.redis.expire("session_%s" % ddeflect_session_id,
+                              SESSION_COOKIE_LIFETIME + 5)
 
             return resp
 
@@ -613,3 +634,4 @@ if __name__ == "__main__":
                         help='Verbose mode, not daemonized')
 
     args = parser.parse_args()
+    main(args)
