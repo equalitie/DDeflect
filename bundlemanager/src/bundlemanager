@@ -406,6 +406,7 @@ class DebundlerServer(flask.Flask):
                          flask.request.url)
 
             revproxy_result = self.reverse_proxy(flask.request, path)
+            # TODO check this value for excessive use/abuse
             self.redis.incr("session_%s" % ddeflect_session_id)
 
             if revproxy_result.ok:
@@ -454,7 +455,7 @@ class DebundlerServer(flask.Flask):
                           bundlehash)
             resp = flask.Response(render_result, status=200)
 
-            ddeflect_session_id = "%x" % random.getrandbits(128)
+            ddeflect_session_id = os.urandom(128).encode("hex")
             # TODO allow for updating of the max_age
             resp.set_cookie(SESSION_COOKIE_NAME, ddeflect_session_id,
                             max_age=SESSION_COOKIE_LIFETIME)
