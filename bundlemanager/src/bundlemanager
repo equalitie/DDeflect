@@ -290,22 +290,22 @@ class DebundlerServer(flask.Flask):
         Passes POST request directly to the remapped origin
         returns the server's response
         """
+
+
+        # THIS FUNCTION IS BROKEN, IT WAS NOT TESTED WHEN IT WAS
+        # DEVELOPED. FIXME FIXME FIXME.
+
         request_host = flask.request.headers.get('Host')
-        remap_host = ''
-        if request_host in self.remap_rules:
-            remap_host = self.remap_rules[request_host]
-        else:
-            #Return 404
-            return None
+        if request_host not in self.remap_rules:
+            flask.abort(403)
+
+        remap_host = self.remap_rules[request_host]
 
         # Pass all headers
         request_headers = dict(flask.request.headers)
         request_headers['Host'] = request_host
 
-        #TODO this is broken, function no longer exists
-        remapped_origin = self.bundleMaker.remapReqURL(
-            remap_host, flask.request
-        )
+        remapped_origin = request.url.replace(request_host, origin, 1)
 
         proxied_response = requests.post(
             remapped_origin,
@@ -342,6 +342,12 @@ class DebundlerServer(flask.Flask):
             return resp
 
     def reverse_proxy(self, request, path):
+        """
+         Reverse proxy requests to origin. Strip off any
+        DDeflect-related stuff and headers that make the requests
+        misbehave.
+        """
+
         host = request.headers.get("Host")
         if not host:
             # We don't proxy for domains with no host header
@@ -356,6 +362,19 @@ class DebundlerServer(flask.Flask):
         origin = settings.remap[host]["origin"]
         request_headers = dict(request.headers)
         remapped_url = request.url.replace(host, origin, 1)
+        request_cookies = dict(request.cookies)
+
+        # If you don't del content-length the origin will probably throw a 411.
+        del(request_headers["Content-Length"])
+        # Scrub the ddeflect session key
+        del(request_cookies[SESSION_COOKIE_NAME])
+
+        # and scrub it from the headers - TODO not sure if this is
+        # necessary.
+        scrubbed_cookies = [ key+"="+val for key, val in request_cookies.iteritems() \
+                               if key != SESSION_COOKIE_NAME ]
+        request_headers_cookie_str = ";".join(scrubbed_cookies)
+        request_headers["Cookie"] = request_headers_cookie_str
 
         proxied_response_obj = requests.get(
             remapped_url,
@@ -412,6 +431,10 @@ class DebundlerServer(flask.Flask):
             if revproxy_result.ok:
                 return flask.Response(revproxy_result.text, status=200)
             else:
+                logging.error("Failed to fetch resource %s to reverse proxy: %s (error %d)",
+                              flask.request.url,
+                              revproxy_result.text,
+                              revproxy_result.status_code)
                 flask.abort(revproxy_result.status_code)
 
         else:
