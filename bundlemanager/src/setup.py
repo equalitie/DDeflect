@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name = "bundlemanager",
-    version = "1.0.3",
+    version = "1.0.5",
     author = "Hugh Nowlan",
     author_email = "nosmo@nosmo.me",
     description = "DDeflect bundle management system",
