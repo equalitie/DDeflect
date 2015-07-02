@@ -412,7 +412,7 @@ class DebundlerServer(flask.Flask):
             if revproxy_result.ok:
                 return flask.Response(revproxy_result.text, status=200)
             else:
-                flask.abort(revproxy_result.code)
+                flask.abort(revproxy_result.status_code)
 
         else:
             v_edge = self.vedge_manager.get_vedge()
