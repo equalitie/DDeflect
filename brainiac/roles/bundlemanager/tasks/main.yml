@@ -7,8 +7,9 @@
   apt: pkg={{item}} state=installed
   with_items:
     - redis-server
-    - python-pip
     - python-dev
+
+- easy_install: name=pip
 
 - name: Ensure redis is running and enabled
   service: name=redis-server state=running enabled=yes
@@ -21,6 +22,8 @@
 - name: Configure bundlemanager
   template: src=bundlemanager.yaml.j2 dest=/etc/bundlemanager.yaml
   notify: reload bundlemanager
+  # Ignore a failed reload
+  ignore_errors: True
 
 - name: Ensure bundlemanager is running and enabled
   service: name=bundlemanager state=running enabled=yes
