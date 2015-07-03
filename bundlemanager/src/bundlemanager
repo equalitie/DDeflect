@@ -26,7 +26,7 @@ logging.getLogger("requests").setLevel(logging.WARNING)
 from bundlemaker import BundleMaker
 
 SESSION_COOKIE_NAME = "X-DDeflect-Session"
-SESSION_COOKIE_LIFETIME = 60
+SESSION_COOKIE_LIFETIME = 6000
 
 try:
     from bundlemaker import settings
@@ -415,7 +415,8 @@ class DebundlerServer(flask.Flask):
                 logging.error("got request that started with _bundle but had no slash!")
                 flask.abort(503)
             return self.serve_bundle(path.split("/")[1])
-        elif self.redis.exists("session_%s" % ddeflect_session_id):
+        elif self.redis.exists("session_%s" % ddeflect_session_id) and\
+            self.redis.hget("session_%s" % ddeflect_session_id, "path") != "/%s" % path:
 
             # We're *not* serving a bundle but we *do* have a valid
             # DDeflect session ID - reverse proxy our request directly
@@ -426,7 +427,7 @@ class DebundlerServer(flask.Flask):
 
             revproxy_result = self.reverse_proxy(flask.request, path)
             # TODO check this value for excessive use/abuse
-            self.redis.incr("session_%s" % ddeflect_session_id)
+            self.redis.hincrby("session_%s" % ddeflect_session_id, "hitcount")
 
             if revproxy_result.ok:
                 return flask.Response(revproxy_result.text, status=200)
@@ -482,7 +483,8 @@ class DebundlerServer(flask.Flask):
             # TODO allow for updating of the max_age
             resp.set_cookie(SESSION_COOKIE_NAME, ddeflect_session_id,
                             max_age=SESSION_COOKIE_LIFETIME)
-            self.redis.set("session_%s" % ddeflect_session_id, 0)
+            self.redis.hset("session_%s" % ddeflect_session_id, "hitcount", 0)
+            self.redis.hset("session_%s" % ddeflect_session_id, "path", path)
             self.redis.expire("session_%s" % ddeflect_session_id,
                               SESSION_COOKIE_LIFETIME + 5)
 
