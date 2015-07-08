@@ -291,35 +291,18 @@ class DebundlerServer(flask.Flask):
         returns the server's response
         """
 
+        revproxy_result = self.reverse_proxy(flask.request, method="POST")
+        logging.info("Handling POST request to %s", flask.request.url)
 
-        # THIS FUNCTION IS BROKEN, IT WAS NOT TESTED WHEN IT WAS
-        # DEVELOPED. FIXME FIXME FIXME.
-
-        request_host = flask.request.headers.get('Host')
-        if request_host not in self.remap_rules:
-            flask.abort(403)
-
-        remap_host = self.remap_rules[request_host]
-
-        # Pass all headers
-        request_headers = dict(flask.request.headers)
-        request_headers['Host'] = request_host
-
-        remapped_origin = request.url.replace(request_host, origin, 1)
-
-        proxied_response = requests.post(
-            remapped_origin,
-            headers=request_headers,
-            files=flask.request.files,
-            data=flask.request.form,
-            cookies=flask.request.cookies,
-        )
-
-        # TODO this doesn't return any content, just returns the
-        # requests Response object. not sure whether bill tested this.
-        return flask.Response(
-            response=proxied_response
-        )
+        if revproxy_result.ok:
+            return flask.Response(revproxy_result.text,
+                                  status=revproxy_result.status_code)
+        else:
+            logging.error("Failed to POST resource %s to reverse proxy: %s (error %d)",
+                          flask.request.url,
+                          revproxy_result.text,
+                          revproxy_result.status_code)
+            flask.abort(revproxy_result.status_code)
 
     def serve_bundle(self, bundlehash):
         logging.info("Got a request for bundle with hash of %s", bundlehash)
@@ -341,7 +324,7 @@ class DebundlerServer(flask.Flask):
             resp.headers['Access-Control-Allow-Origin'] = "*"
             return resp
 
-    def reverse_proxy(self, request, path):
+    def reverse_proxy(self, request, method='GET'):
         """
          Reverse proxy requests to origin. Strip off any
         DDeflect-related stuff and headers that make the requests
@@ -355,8 +338,8 @@ class DebundlerServer(flask.Flask):
 
         if host not in settings.remap:
             # We don't proxy for hosts we're not configured for
-            logging.warn("Received an invalid request for %s/%s from %s.",
-                         host, path, request.headers.get("X-Forwarded-For"))
+            logging.warn("Received an invalid request for %s from %s.",
+                         request.url, request.headers.get("X-Forwarded-For"))
             flask.abort(403)
 
         origin = settings.remap[host]["origin"]
@@ -367,7 +350,8 @@ class DebundlerServer(flask.Flask):
         # If you don't del content-length the origin will probably throw a 411.
         del(request_headers["Content-Length"])
         # Scrub the ddeflect session key
-        del(request_cookies[SESSION_COOKIE_NAME])
+        if SESSION_COOKIE_NAME in request_cookies:
+            del(request_cookies[SESSION_COOKIE_NAME])
 
         # and scrub it from the headers - TODO not sure if this is
         # necessary.
@@ -376,12 +360,25 @@ class DebundlerServer(flask.Flask):
         request_headers_cookie_str = ";".join(scrubbed_cookies)
         request_headers["Cookie"] = request_headers_cookie_str
 
-        proxied_response_obj = requests.get(
-            remapped_url,
-            headers=request_headers,
-            data=dict(request.form),
-            cookies=dict(request.cookies)
-        )
+        if method == "GET":
+            proxied_response_obj = requests.get(
+                remapped_url,
+                headers=request_headers,
+                data=dict(request.form),
+                cookies=dict(request.cookies)
+            )
+        elif method == "POST":
+            proxied_response_obj = requests.post(
+                remapped_url,
+                headers=request_headers,
+                data=dict(request.form),
+                cookies=dict(request.cookies)
+            )
+        else:
+            logging.error(("Got request for reverse proxied method "
+                           "%s when it is not implemented. URL: %s"),
+                          method, request.url)
+            raise NotImplemented
 
         return proxied_response_obj
 
@@ -430,7 +427,8 @@ class DebundlerServer(flask.Flask):
             self.redis.hincrby("session_%s" % ddeflect_session_id, "hitcount")
 
             if revproxy_result.ok:
-                return flask.Response(revproxy_result.text, status=200)
+                return flask.Response(revproxy_result.text,
+                                      status=revproxy_result.status_code)
             else:
                 logging.error("Failed to fetch resource %s to reverse proxy: %s (error %d)",
                               flask.request.url,
