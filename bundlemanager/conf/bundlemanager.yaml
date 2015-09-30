@@ -16,8 +16,8 @@ general:
 v_edges:
   "http://127.0.0.1:8000":
     availability:
-      start: ""
-      end: ""
+      start: "10:00"
+      end: "18:00"
     total_bandwidth: 100
     prefix: ddeflect
 remap:
