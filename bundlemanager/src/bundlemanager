@@ -74,56 +74,76 @@ class DebundlerMaker(object):
         self.iv = iv_bytes.encode("hex")
 
 class VedgeManager(object):
-    def __init__(self, vedge_data):
+    def __init__(self, vedge_data, redis):
         self.vedge_data = vedge_data
-        #self.redis = redis.Redis()
+        self.redis = redis
         self.vedge_threshold = 100
-    '''
-    def populateRedisVEdges(self):
-        """
-        Set initial values for v-edges in redis
-        storing time windows and bandwidth constraints
-        """
-        for edge in self.vedge_data:
-            value = json.dumps({
-                "start": edge['availability']['start'],
-                "end": edge['availability']['end'],
-                "total_bandiwdth": edge['total_bandwidth'],
-                "used_bandwidth": 0
-            })
-            self.redis.sadd("vedges", edge.key())
-            self.redis.set(edge.key(), value)
+        self.populate_redis_vedge_list()
 
-            now = datetime.utcnow()
-            now_time = now.time()
-
-            start = time.strptime(edge['availability']['start'], "%H:%M")
-            end = time.strptime(edge['availability']['end'], "%H:%M")
-
-            if now_time >= start and now_time <= end:
-                expiration = now.replace(
-                                    hour = end.hour,
-                                    minute = end.minute
-                            )
-                active_key = edge.key() + '_active'
-                self.redis.sadd("active_vedges", active_key)
-                self.redis.set(active_key, value)
-                self.redis.expire(active_key, expiration)
-
-            #Build special set for quick lookup of time windows, represent as hash set
-
-        # Create active set and copy store to it
-        # with expiration for keys
-        # key should be delted for bandwidth when that quantity is reached
-        # in terms of bandwidth, this should be handled by the badnwidth
-        # recorder
+    def populate_redis_vedge_list(self):
         '''
+         Purges old vedge list and initialises it with the list
+        currently in the config file. Does NOT purge old vedge data,
+        nor does it delete vedges that are no longer listed. Might
+        consider the last part a TODO.
+
+        '''
+
+        self.redis.delete("vedges")
+        for vedge_name, edge_data in self.vedge_data.iteritems():
+            self.redis.sadd("vedges", vedge_name)
+            redis_label = "vedge:%s" % vedge_name
+            if not self.redis.exists(redis_label):
+                self.redis.hset(redis_label, "avail_start",
+                                edge_data["availability"]["start"])
+                self.redis.hset(redis_label, "avail_end",
+                                edge_data["availability"]["start"])
+                self.redis.hset(redis_label, "traffic_limt",
+                                edge_data["total_bandwidth"])
+                self.redis.hset(redis_label, "traffic_total",
+                                0)
+
     def refresh_vedges(self):
         """
-        Rebuild v-edge list is number of available v-edges
-        has slipped below predefined threshold
+         Get list of V-edges that qualify for "activity" at a given
+        time and store them in active_vedges.
+
+        Returns the number of new vedges that are in active use
+
         """
-        pass
+        now = time.time()
+        newlist = []
+        for vedge_name in self.redis.smembers("vedges"):
+            vedge_details = self.redis.hscan("vedges:%s" % vedge_name)[1]
+            now = datetime.datetime.now()
+            start_t = time.strptime(vedge_details["avail_start"], "%H:%M")
+            end_t = time.strptime(vedge_details["avail_end"], "%H:%M")
+            #TODO check minutes
+            if start_t and (now.hour < start_t.tm_hour):
+                # We're too early
+                continue
+            elif end_t and (now.hour > end_t.tm_hour):
+                # We're too late
+                continue
+            elif vedge_details["traffic_limit"] and \
+                 (vedge_details["traffic_total"] >= vedge_details["traffic_limit"]):
+                # We're over budget
+                continue
+            else:
+                newlist.append(vedge_name)
+
+        # Ensure we don't break the edgelist, add/remove in-place,
+        # don't clean
+
+        # Get the old edges
+        old_actives = self.redis.mget("active_vedges")
+        # Unpack the list to add the new edges
+        self.redis.sadd("active_edges", *newlist)
+        # Remove the old edges
+        for old_active in old_actives:
+            if old_active not in newlist:
+                self.redis.srem("active_edges", old_active)
+        return len(newlist)
 
     def get_vedge(self):
         """
@@ -160,8 +180,13 @@ class DebundlerServer(flask.Flask):
         super(DebundlerServer, self).__init__("DebundlerServer",
                                               template_folder=self.template_folder)
 
+        redis_host = "localhost"
+        if "redis_host" in settings.general:
+            redis_host = settings.general["redis_host"]
+        self.redis = redis.Redis(host=redis_host)
+
         self.debundler_maker = DebundlerMaker(settings.general["refresh_period"])
-        self.vedge_manager = VedgeManager(settings.v_edges)
+        self.vedge_manager = VedgeManager(settings.v_edges, self.redis)
 
         self.bundles = collections.defaultdict(dict)
         self.remap_rules = settings.remap
@@ -173,10 +198,6 @@ class DebundlerServer(flask.Flask):
         self.salt = settings.general["url_salt"]
         self.refresh_period = settings.general["refresh_period"]
 
-        redis_host = "localhost"
-        if "redis_host" in settings.general:
-            redis_host = settings.general["redis_host"]
-        self.redis = redis.Redis(host=redis_host)
 
         # wildcard routing
         self.route('/', defaults={'path': ''})(self.root_route)
@@ -240,7 +261,7 @@ class DebundlerServer(flask.Flask):
         ).hexdigest()
 
     def gen_bundle_hash(self, request):
-        return self._bundle_sig_useragent_ip(request)
+        return self._bundle_sig_host_path(request)
 
     def gen_bundle(self, frequest, path, key, iv, hmac_key):
         request_host = frequest.headers.get('Host')
@@ -363,6 +384,9 @@ class DebundlerServer(flask.Flask):
         if method == "GET":
             proxied_response_obj = requests.get(
                 remapped_url,
+                # we don't care if the origin has a bad cert because
+                # we're just proxying. sad but true.
+                verify=False,
                 headers=request_headers,
                 data=dict(request.form),
                 cookies=dict(request.cookies)
@@ -370,6 +394,9 @@ class DebundlerServer(flask.Flask):
         elif method == "POST":
             proxied_response_obj = requests.post(
                 remapped_url,
+                # we don't care if the origin has a bad cert because
+                # we're just proxying. sad but true.
+                verify=False,
                 headers=request_headers,
                 data=dict(request.form),
                 cookies=dict(request.cookies)
@@ -412,8 +439,8 @@ class DebundlerServer(flask.Flask):
                 logging.error("got request that started with _bundle but had no slash!")
                 flask.abort(503)
             return self.serve_bundle(path.split("/")[1])
-        elif self.redis.exists("session_%s" % ddeflect_session_id) and\
-            self.redis.hget("session_%s" % ddeflect_session_id, "path") != "/%s" % path:
+        elif self.redis.exists("sessions:%s" % ddeflect_session_id) and\
+            self.redis.hget("sessions:%s" % ddeflect_session_id, "path") != "/%s" % path:
 
             # We're *not* serving a bundle but we *do* have a valid
             # DDeflect session ID - reverse proxy our request directly
@@ -424,7 +451,7 @@ class DebundlerServer(flask.Flask):
 
             revproxy_result = self.reverse_proxy(flask.request, path)
             # TODO check this value for excessive use/abuse
-            self.redis.hincrby("session_%s" % ddeflect_session_id, "hitcount")
+            self.redis.hincrby("session:%s" % ddeflect_session_id, "hitcount")
 
             if revproxy_result.ok:
                 return flask.Response(revproxy_result.text,
@@ -481,9 +508,9 @@ class DebundlerServer(flask.Flask):
             # TODO allow for updating of the max_age
             resp.set_cookie(SESSION_COOKIE_NAME, ddeflect_session_id,
                             max_age=SESSION_COOKIE_LIFETIME)
-            self.redis.hset("session_%s" % ddeflect_session_id, "hitcount", 0)
-            self.redis.hset("session_%s" % ddeflect_session_id, "path", path)
-            self.redis.expire("session_%s" % ddeflect_session_id,
+            self.redis.hset("session:%s" % ddeflect_session_id, "hitcount", 0)
+            self.redis.hset("session:%s" % ddeflect_session_id, "path", path)
+            self.redis.expire("session:%s" % ddeflect_session_id,
                               SESSION_COOKIE_LIFETIME + 5)
 
             return resp
@@ -605,9 +632,14 @@ def create_handler(daemon):
             if daemon.debundleServer:
                 logging.warn("Reload V-Edge list")
                 from bundlemaker import settings
-                settings = reload(settings)
+                settings = reload(bundlemaker.settings)
+                redis_host = "localhost"
+                if "redis_host" in settings.general:
+                    redis_host = settings.general["redis_host"]
+                the_redis = redis.Redis(host=redis_host)
+
                 daemon.debundleServer.reload_vedges(
-                    VedgeManager(settings.v_edges)
+                    VedgeManager(settings.v_edges, the_redis)
                 )
     return _handle_signal
 
