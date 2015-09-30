@@ -138,11 +138,11 @@ class VedgeManager(object):
             now = datetime.datetime.now()
             start_t = None
             end_t = None
-            if vedge_details["avail_start"]:
-                print vedge_details["avail_start"]
-                print type(vedge_details["avail_start"])
+
+            # "None" because lolol redis ;|
+            if vedge_details["avail_start"] != "None":
                 start_t = time.strptime(vedge_details["avail_start"], "%H:%M")
-            if vedge_details["avail_end"]:
+            if vedge_details["avail_end"] != "None":
                 end_t = time.strptime(vedge_details["avail_end"], "%H:%M")
             #TODO check minutes
             if start_t and (now.hour < start_t.tm_hour):
