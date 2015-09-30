@@ -9,6 +9,7 @@ import collections
 import grp
 import hashlib
 import json
+import datetime
 import logging
 import logging.handlers
 import os
@@ -74,11 +75,26 @@ class DebundlerMaker(object):
         self.iv = iv_bytes.encode("hex")
 
 class VedgeManager(object):
-    def __init__(self, vedge_data, redis):
+    def __init__(self, vedge_data, redis, no_populate=False):
+
+        '''
+
+         vedge_data: the config dict lifted straight out of the YAML
+        config file.
+         redis: a Redis() object
+         no_populate: don't populate the redis info - assumes something
+        else will populate.
+
+        '''
+
         self.vedge_data = vedge_data
         self.redis = redis
         self.vedge_threshold = 100
-        self.populate_redis_vedge_list()
+        if not no_populate:
+            # Set up the v-edge data structures
+            self.populate_redis_vedge_list()
+            # Refresh the list to populate the active list
+            self.refresh_vedges()
 
     def populate_redis_vedge_list(self):
         '''
@@ -98,10 +114,14 @@ class VedgeManager(object):
                                 edge_data["availability"]["start"])
                 self.redis.hset(redis_label, "avail_end",
                                 edge_data["availability"]["start"])
-                self.redis.hset(redis_label, "traffic_limt",
+                self.redis.hset(redis_label, "traffic_limit",
                                 edge_data["total_bandwidth"])
                 self.redis.hset(redis_label, "traffic_total",
                                 0)
+
+    def increment_vedge_traffic(self, vedge_name, amount):
+        return self.redis.hincrby("vedge:%s" % vedge_name,
+                                  "traffic_total", amount)
 
     def refresh_vedges(self):
         """
@@ -114,10 +134,16 @@ class VedgeManager(object):
         now = time.time()
         newlist = []
         for vedge_name in self.redis.smembers("vedges"):
-            vedge_details = self.redis.hscan("vedges:%s" % vedge_name)[1]
+            vedge_details = self.redis.hgetall("vedge:%s" % vedge_name)
             now = datetime.datetime.now()
-            start_t = time.strptime(vedge_details["avail_start"], "%H:%M")
-            end_t = time.strptime(vedge_details["avail_end"], "%H:%M")
+            start_t = None
+            end_t = None
+            if vedge_details["avail_start"]:
+                print vedge_details["avail_start"]
+                print type(vedge_details["avail_start"])
+                start_t = time.strptime(vedge_details["avail_start"], "%H:%M")
+            if vedge_details["avail_end"]:
+                end_t = time.strptime(vedge_details["avail_end"], "%H:%M")
             #TODO check minutes
             if start_t and (now.hour < start_t.tm_hour):
                 # We're too early
@@ -151,21 +177,17 @@ class VedgeManager(object):
         their current availability, the time last accessed,
         and the total bandwidth available
         """
-        # pop first element in sorted list, reset timestamp
-        """
-        if self.redis.llen("active_vedges") < self.vedge_threshold:
-            self.refresh_vedges()
+
         vedge = self.redis.srandmember("active_vedges")
         return vedge
-        """
 
-        #For now, just return a random Vedge
-        chosen_vedge = self.vedge_data.keys()[
-            random.randint(0, len(self.vedge_data.keys())-1)]
-        prefix = self.vedge_data[chosen_vedge].get("prefix", "")
-        if prefix and not prefix.startswith("/"):
-            chosen_vedge = chosen_vedge + "/" + prefix
-        return chosen_vedge
+        # #For now, just return a random Vedge
+        # chosen_vedge = self.vedge_data.keys()[
+        #     random.randint(0, len(self.vedge_data.keys())-1)]
+        # prefix = self.vedge_data[chosen_vedge].get("prefix", "")
+        # if prefix and not prefix.startswith("/"):
+        #     chosen_vedge = chosen_vedge + "/" + prefix
+        # return chosen_vedge
 
 
 class DebundlerServer(flask.Flask):
