@@ -46,4 +46,9 @@ target/
 *.deb
 *.dsc
 *.changes
+#emacs
 *~
+
+
+#stuff that should not be tracked in git, even if it's there as an example
+braniac/clients.yml
