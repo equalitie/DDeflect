@@ -6,10 +6,10 @@ import redis
 
 import argparse
 import collections
+import datetime
 import grp
 import hashlib
 import json
-import datetime
 import logging
 import logging.handlers
 import os
@@ -17,6 +17,7 @@ import pkg_resources
 import pwd
 import random
 import signal
+import socket
 import sys
 import threading
 import time
@@ -174,10 +175,12 @@ class VedgeManager(object):
 
         if not newlist:
             # TODO come up with a failover strategy here. For now lets
-            # just panic.
+            # just panic and use the t-edge in question
             # Bad faith idea: Just use a random V-edge. Let's not do this.
             # Good faith idea: Use our own hostname.
             logging.error("Failed to get any active v-edges!")
+            self.redis.del("active_vedges")
+            self.redis.sadd("active_vedges", socket.gethostname())
             return False
 
         # Ensure we don't break the edgelist, add/remove in-place,
