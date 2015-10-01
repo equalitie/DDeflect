@@ -138,37 +138,51 @@ class VedgeManager(object):
             now = datetime.datetime.now()
             start_t = None
             end_t = None
+            traffic_toal = 0
+            traffic_limit = 0
 
             # "None" because lolol redis ;|
             if vedge_details["avail_start"] != "None":
                 start_t = time.strptime(vedge_details["avail_start"], "%H:%M")
             if vedge_details["avail_end"] != "None":
                 end_t = time.strptime(vedge_details["avail_end"], "%H:%M")
+            if vedge_details["traffic_total"] != "None":
+                traffic_total = int(vedge_details["traffic_total"])
+            if vedge_details["traffic_limit"] != "None":
+                traffic_limit = int(vedge_details["traffic_limit"])
+
             #TODO check minutes
             if start_t and (now.hour < start_t.tm_hour):
                 # We're too early
+                logging.debug("Skipping v-edge %s - before start time", vedge_name)
                 continue
             elif end_t and (now.hour > end_t.tm_hour):
                 # We're too late
+                logging.debug("Skipping v-edge %s - after start time", vedge_name)
                 continue
-            elif vedge_details["traffic_limit"] and \
-                 (vedge_details["traffic_total"] >= vedge_details["traffic_limit"]):
+            elif traffic_limit and traffic_total >= traffic_limit:
+                logging.debug("Skipping v-edge %s - over traffic limit (%d > %d)", vedge_name,
+                              traffic_total, traffic_limit)
                 # We're over budget
                 continue
             else:
+                logging.debug("v-edge %s is eligible for use", vedge_name)
                 newlist.append(vedge_name)
 
         # Ensure we don't break the edgelist, add/remove in-place,
         # don't clean
 
         # Get the old edges
-        old_actives = self.redis.mget("active_vedges")
+        old_actives = self.redis.smembers("active_vedges")
         # Unpack the list to add the new edges
-        self.redis.sadd("active_edges", *newlist)
+        self.redis.sadd("active_vedges", *newlist)
         # Remove the old edges
         for old_active in old_actives:
             if old_active not in newlist:
-                self.redis.srem("active_edges", old_active)
+                logging.info("Removing edge %s from v-edge active pool", old_active)
+                self.redis.srem("active_vedges", old_active)
+            else:
+                logging.debug("Keeping edge %s active in v-edge pool", old_active)
         return len(newlist)
 
     def get_vedge(self):
