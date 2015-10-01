@@ -36,7 +36,7 @@ CONFIG proxy.config.http.insert_response_via_str INT 0
 #    https://docs.trafficserver.apache.org/records.config#parent-proxy-configuration
 #    https://docs.trafficserver.apache.org/en/latest/reference/configuration/parent.config.en.html
 ##############################################################################
-CONFIG proxy.config.http.parent_proxy_routing_enable INT 0
+CONFIG proxy.config.http.parent_proxy_routing_enable INT 1
 CONFIG proxy.config.http.parent_proxy.retry_time INT 300
 CONFIG proxy.config.http.parent_proxy.connect_attempts_timeout INT 30
 CONFIG proxy.config.http.forward.proxy_auth_to_parent INT 0
@@ -149,7 +149,8 @@ CONFIG proxy.config.log.auto_delete_rolled_files INT 1
 ##############################################################################
 CONFIG proxy.config.url_remap.remap_required INT 1
     # https://docs.trafficserver.apache.org/records.config#proxy-config-url-remap-pristine-host-hdr
-CONFIG proxy.config.url_remap.pristine_host_hdr INT 1
+# Set to zero here to use parent config
+CONFIG proxy.config.url_remap.pristine_host_hdr INT 0
 
 ##############################################################################
 # SSL Termination. Docs:

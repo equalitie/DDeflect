@@ -34,8 +34,8 @@
 - include: config.yml
   when: not vedge
 
-- include: vedge.yml
-  when: vedge
-
 - include: ssl.yml
   when: not vedge
+
+- include: vedge.yml
+  when: vedge

@@ -5,5 +5,10 @@
 # Allow for V-edges to request bundles from us
 map http://{{ansible_nodename}}     http://localhost:{{bundlemanager_port}}
 
+
+map                                 http://distributed.deflect.ca/      http://localhost:8000 @plugin=conf_remap.so @pparam=/etc/trafficserver/pristine.config
+regex_map       http://^(.*).distributed.deflect.ca/    http://$1/
+
+
 # For local caching proxy
-regex_map http://(.*)/  http://$1/      @action=allow @src_ip=127.0.0.1
+#regex_map http://(.*)/  http://$1/      @action=allow @src_ip=127.0.0.1
