@@ -22,7 +22,7 @@ v_edges:
 remap:
 {% for site, attributes in remap.iteritems() %}
 {% set origin = attributes["origin"] -%}
-{% if "direct_origin" in attributes and attributes["direct_origin"] -%}
+{% if "site_as_origin" in attributes and attributes["site_as_origin"] -%}
 {% set site = origin -%}
 {% endif %}
    {{site}}:

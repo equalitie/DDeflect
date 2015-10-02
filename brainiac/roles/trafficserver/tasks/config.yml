@@ -23,7 +23,7 @@
 
 - name: remap config per-site
   template: src=remap.d.ddeflect.j2 dest=/etc/trafficserver/remap.d/{{item.key}}.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
-  when: item.key != "distributed.deflect.ca" and ('direct_origin' in item.value and not item.value['direct_origin'])
+  when: item.key != "distributed.deflect.ca" and ('site_as_origin' in item.value and not item.value['site_as_origin'])
   with_dict: remap
   notify:
     - restart ats
