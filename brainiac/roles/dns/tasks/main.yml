@@ -20,7 +20,7 @@
   template: src=zone.j2 dest=/var/tmp/ddeflect/{{ item.key }}.zone owner=root group=bind
   with_dict: remap
   # lol YAML :( need to wrap this statement in quotes.
-  when: "'direct_origin' in item.value and not item.value['direct_origin']"
+  when: "'site_as_origin' in item.value and not item.value['site_as_origin']"
 
 - name: Central DNS zone files
   template: src=networkzone.j2 dest=/var/tmp/ddeflect/{{item}}.zone owner=root group=bind

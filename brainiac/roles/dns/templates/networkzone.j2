@@ -5,8 +5,8 @@
 
 ; Origin records for {{ item }}
 {% for site, siteattrs in remap.iteritems() %}
-{% if item == siteattrs["network"] and "direct_origin" in siteattrs and siteattrs["direct_origin"] %}
-; Skipped origin for {{ site }} as direct origin is in use
+{% if item == siteattrs["network"] and "site_as_origin" in siteattrs and siteattrs["site_as_origin"] %}
+; Skipped origin for {{ site }} as it's a subdomain of {{ siteattrs["network"] }}
 {{ siteattrs["origin"] }}       IN  CNAME   {{ siteattrs["network"] }}.
 {% elif item == siteattrs["network"] %}
 {{siteattrs["hidden"]}}.origin     IN           A       {{siteattrs["origin"]}}
