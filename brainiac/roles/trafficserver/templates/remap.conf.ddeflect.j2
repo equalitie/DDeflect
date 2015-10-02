@@ -1,14 +1,19 @@
 {% for site in remap %}
+{% if not "direct_origin" in remap[site] or ("direct_origin" in remap[site] and not remap[site]["direct_origin"]) -%}
 .include remap.d/{{site}}.config
+{% endif -%}
 {% endfor %}
 
 # Allow for V-edges to request bundles from us
 map http://{{ansible_nodename}}     http://localhost:{{bundlemanager_port}}
 
-
 map                                 http://distributed.deflect.ca/      http://localhost:8000 @plugin=conf_remap.so @pparam=/etc/trafficserver/pristine.config
-regex_map       http://^(.*).distributed.deflect.ca/    http://$1/
 
+{% for site in remap %}
+{% if "direct_origin" in remap[site] and remap[site]["direct_origin"] -%}
+map       http://{{site}}.distributed.deflect.ca/    http://{{site}}/
+{% endif -%}
+{% endfor %}
 
 # For local caching proxy
 #regex_map http://(.*)/  http://$1/      @action=allow @src_ip=127.0.0.1
