@@ -1,0 +1,5 @@
+{% for site, attributes in remap.iteritems() %}
+{% if "site_as_origin" in attributes and attributes["site_as_origin"] -%}
+domain={{attributes["origin"]}} parent="localhost:8000"
+{% endif -%}
+{% endfor %}

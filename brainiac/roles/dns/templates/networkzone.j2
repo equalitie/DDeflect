@@ -1,17 +1,20 @@
-# Edge records for {{ item }}
+; Edge records for {{ item }}
 {% for edge in groups[item] %}
 {{edge.split(".")[0]}}    IN      A     {{ hostvars[edge]["ip_address"] }}
 {% endfor %}
 
-# Origin records for {{ item }}
+; Origin records for {{ item }}
 {% for site, siteattrs in remap.iteritems() %}
-{% if item == siteattrs["network"] %}
+{% if item == siteattrs["network"] and "site_as_origin" in siteattrs and siteattrs["site_as_origin"] %}
+; Skipped origin for {{ site }} as it's a subdomain of {{ siteattrs["network"] }}
+{{ siteattrs["origin"] }}       IN  CNAME   {{ siteattrs["network"] }}.
+{% elif item == siteattrs["network"] %}
 {{siteattrs["hidden"]}}.origin     IN           A       {{siteattrs["origin"]}}
 {{siteattrs["hidden"]}}.origin.nocache     IN           A       {{siteattrs["origin"]}}
 {% endif %}
 {% endfor %}
 
-# Site records for {{ item }}
+; Site records for {{ item }}
 {% if item in remap.keys() %}
 {% for domain, attributes in remap[item]["dns_records"].iteritems() %}
 {% for entry in attributes %}

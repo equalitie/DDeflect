@@ -3,11 +3,17 @@
 - name: cache config
   template: src=cache.config.tedge.j2 dest=/etc/trafficserver/cache.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
 
+- name: parent config
+  template: src=parent.config.j2 dest=/etc/trafficserver/parent.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
+
 - name: records config
   template: src=records.6.tedge.j2 dest=/etc/trafficserver/records.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
 
 - name: logging config
   template: src=logs_xml.config.j2 dest=/etc/trafficserver/logs_xml.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
+
+- name: pristine config
+  file: src=pristine.config dest=/etc/trafficserver/pristine.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
 
 - name: remap dir
   file: state=directory path=/etc/trafficserver/remap.d/ owner={{trafficserver_user}} group={{trafficserver_group}}
@@ -17,6 +23,7 @@
 
 - name: remap config per-site
   template: src=remap.d.ddeflect.j2 dest=/etc/trafficserver/remap.d/{{item.key}}.config owner={{ trafficserver_user }} group={{ trafficserver_group }}
+  when: item.key != "distributed.deflect.ca" and ('site_as_origin' in item.value and not item.value['site_as_origin'])
   with_dict: remap
   notify:
     - restart ats
