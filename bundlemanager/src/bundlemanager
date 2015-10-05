@@ -6,10 +6,10 @@ import redis
 
 import argparse
 import collections
+import datetime
 import grp
 import hashlib
 import json
-import datetime
 import logging
 import logging.handlers
 import os
@@ -17,6 +17,7 @@ import pkg_resources
 import pwd
 import random
 import signal
+import socket
 import sys
 import threading
 import time
@@ -105,17 +106,20 @@ class VedgeManager(object):
 
         '''
 
-        self.redis.delete("vedges")
         for vedge_name, edge_data in self.vedge_data.iteritems():
             self.redis.sadd("vedges", vedge_name)
             redis_label = "vedge:%s" % vedge_name
-            if not self.redis.exists(redis_label):
-                self.redis.hset(redis_label, "avail_start",
-                                edge_data["availability"]["start"])
-                self.redis.hset(redis_label, "avail_end",
-                                edge_data["availability"]["start"])
-                self.redis.hset(redis_label, "traffic_limit",
-                                edge_data["total_bandwidth"])
+
+            self.redis.hset(redis_label, "avail_start",
+                            edge_data["availability"]["start"])
+            self.redis.hset(redis_label, "avail_end",
+                            edge_data["availability"]["start"])
+            self.redis.hset(redis_label, "traffic_limit",
+                            edge_data["total_bandwidth"])
+            if not self.redis.hexists(redis_label, "traffic_total"):
+                # TODO track when this counter was last reset. might
+                # need a time series here that tracks when this is
+                # used.
                 self.redis.hset(redis_label, "traffic_total",
                                 0)
 
@@ -168,6 +172,16 @@ class VedgeManager(object):
             else:
                 logging.debug("v-edge %s is eligible for use", vedge_name)
                 newlist.append(vedge_name)
+
+        if not newlist:
+            # TODO come up with a failover strategy here. For now lets
+            # just panic and use the t-edge in question
+            # Bad faith idea: Just use a random V-edge. Let's not do this.
+            # Good faith idea: Use our own hostname.
+            logging.error("Failed to get any active v-edges!")
+            self.redis.del("active_vedges")
+            self.redis.sadd("active_vedges", socket.gethostname())
+            return False
 
         # Ensure we don't break the edgelist, add/remove in-place,
         # don't clean
@@ -338,9 +352,10 @@ class DebundlerServer(flask.Flask):
             "bundle": bundle_content,
             "fetched": time.time()
         }))
+        bundle_len = len(bundle_content)
         self.redis.expire(bundle_signature, self.refresh_period)
 
-        return bundle_signature
+        return (bundle_signature, bundle_len)
 
     def post_route(self):
         """
@@ -509,15 +524,17 @@ class DebundlerServer(flask.Flask):
                 path = "/"
 
             bundlehash = None
+            bundle_len = None
             requested_hash = self.gen_bundle_hash(flask.request)
 
             if self.redis.exists(requested_hash):
                 # TODO Should we update the last fetched time? Update the expiry?
                 bundlehash = requested_hash
+                bundle_len = self.redis.strlen(bundlehash)
 
             if not bundlehash:
                 logging.debug("No bundle hash found. Requesting new bundle")
-                bundlehash = self.gen_bundle(flask.request, path,
+                bundlehash, bundle_len = self.gen_bundle(flask.request, path,
                                              key, iv, hmac_key)
                 if not bundlehash:
                     logging.error("Failing because bundlehash was null")
@@ -535,6 +552,10 @@ class DebundlerServer(flask.Flask):
                 v_edge=unicode(v_edge),
                 bundle_signature=bundlehash
             )
+
+            logging.debug("Incrementing traffic count for %s by %d",
+                          v_edge, bundle_len)
+            self.vedge_manager.increment_vedge_traffic(v_edge, bundle_len)
 
             logging.debug("Returning template to user for signature %s",
                           bundlehash)
