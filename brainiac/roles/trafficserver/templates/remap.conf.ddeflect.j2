@@ -7,6 +7,8 @@
 # Allow for V-edges to request bundles from us
 map http://{{ansible_nodename}}     http://localhost:{{bundlemanager_port}}
 
+# Remap this image directly for Edgemanage
+map                                 http://distributed.deflect.ca/deflectlogo_RED.png http://{{remap["distributed.deflect.ca"]["hidden"]}}.origin.distributed.deflect.ca/deflectlogo_RED.png @plugin=conf_remap.so @pparam=/etc/trafficserver/pristine.config
 map                                 http://distributed.deflect.ca/      http://localhost:8000 @plugin=conf_remap.so @pparam=/etc/trafficserver/pristine.config
 
 {% for site in remap %}
