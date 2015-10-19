@@ -16,6 +16,8 @@ bundlehash_salt: feise4iephohng4ahteequu3paKoaQuaeviashim
 bundler_port: 9008
 
 bundlemanager_port: 8000
-bundlemanager_version: 1.0.2
+bundlemanager_version: 1.0.5
+
+edgemanage_version: 2.0.4
 
 dns_primary: SUPER_SEKRIT
