@@ -26,4 +26,6 @@
 - template: src=edgemanage.yaml.j2 dest=/etc/edgemanage/edgemanage.yaml
 
 - name: Enable edgemanage crontab
-  cron: minute=*/1 job=/usr/local/bin/edge_manage name="edgemanage"
+  cron: minute=*/1 job='/usr/local/bin/edge_manage -A {{item}}' name="edgemanage"
+  with_items:
+    dnets
