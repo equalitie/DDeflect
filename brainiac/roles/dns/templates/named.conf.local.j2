@@ -7,7 +7,7 @@
 //include "/etc/bind/zones.rfc1918";
 
 {% for domain, attributes in remap.iteritems() %}
-{% if attributes["live"] and "direct_origin" not in attributes -%}
+{% if attributes["live"] and "site_as_origin" not in attributes -%}
 zone "{{ domain }}" {
 	type master;
 	file "{{ domain }}.zone";
