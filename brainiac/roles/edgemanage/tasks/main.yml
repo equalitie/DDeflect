@@ -1,0 +1,29 @@
+---
+
+- easy_install: name=pip
+
+- name: Set up edgemanage directories
+  file: state=directory path=/etc/edgemanage/zones/ owner=root group=root recurse=yes
+- file: state=directory path=/etc/edgemanage/zones/{{item}} owner=root group=root recurse=yes
+  with_items:
+    dnets
+  when:
+    item != "controller" and item != "vedges"
+
+- file: state=directory path=/etc/edgemanage/edges owner=root group=root
+- file: state=directory path=/var/lib/edgemanage/health owner=root group=root recurse=yes
+
+- template: src=edgelist.j2 dest=/etc/edgemanage/edges/{{item}} owner=root group=root
+  with_items:
+    dnets
+  when:
+    item != "controller" and item != "vedges"
+
+- name: Install Edgemanage
+  pip: name=edgemanage version={{edgemanage_version}}
+
+- copy: src=deflectlogo_RED.png dest=/etc/edgemanage/deflectlogo_RED.png
+- template: src=edgemanage.yaml.j2 dest=/etc/edgemanage/edgemanage.yaml
+
+- name: Enable edgemanage crontab
+  cron: minute=*/1 job=/usr/local/bin/edge_manage name="edgemanage"
